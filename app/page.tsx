@@ -17,13 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { StationInput } from "@/components/station-input";
 import { DateTimeInput } from "@/components/date-time-input";
 import { TripList } from "@/components/trip-list";
-import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload } from "lucide-react";
+import { CoverageProgress } from "@/components/coverage-progress";
+import { SeatTimeline } from "@/components/seat-timeline";
+import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
 
 type RunResponse = {
@@ -67,26 +68,36 @@ export default function Home() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [searchStep, setSearchStep] = useState<"stations" | "trips" | "results">("stations");
+  const [showDetailedView, setShowDetailedView] = useState(false);
 
-  const summaryCards = useMemo(() => {
+  const hasCollisions = useMemo(() => {
+    if (!result) return false;
+    if (isMultiChainOutput(result.seatChain)) {
+      return result.seatChain.perSegmentTravelerAssignment.some((seg) => !seg.collisionFree);
+    }
+    return false;
+  }, [result]);
+
+  const coverageData = useMemo(() => {
     if (!result) return null;
     if (isMultiChainOutput(result.seatChain)) {
-      return [
-        { label: "Travelers", value: String(result.seatChain.summary.travelers) },
-        {
-          label: "Coverage",
-          value: `${result.seatChain.summary.coveredTravelerSegments}/${result.seatChain.summary.totalTravelerSegments}`,
-        },
-        { label: "Seat changes", value: String(result.seatChain.summary.totalSeatChanges) },
-      ];
+      return {
+        covered: result.seatChain.summary.coveredTravelerSegments,
+        total: result.seatChain.summary.totalTravelerSegments,
+      };
     }
-    return [
-      {
-        label: "Segments covered",
-        value: `${result.seatChain.summary.coveredSegments}/${result.seatChain.summary.totalSegments}`,
-      },
-      { label: "Seat changes", value: String(result.seatChain.summary.seatChanges) },
-    ];
+    return {
+      covered: result.seatChain.summary.coveredSegments,
+      total: result.seatChain.summary.totalSegments,
+    };
+  }, [result]);
+
+  const seatChangesCount = useMemo(() => {
+    if (!result) return 0;
+    if (isMultiChainOutput(result.seatChain)) {
+      return result.seatChain.summary.totalSeatChanges;
+    }
+    return result.seatChain.summary.seatChanges;
   }, [result]);
 
   const resetSearch = () => {
@@ -95,6 +106,7 @@ export default function Home() {
     setResult(null);
     setError(null);
     setSearchStep("stations");
+    setShowDetailedView(false);
   };
 
   async function handleHarSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -218,32 +230,28 @@ export default function Home() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Train className="h-6 w-6" />
-            <CardTitle className="text-2xl">Seat Chain Builder</CardTitle>
-          </div>
-          <CardDescription>
-            Find optimal seat arrangements for your train journey
-          </CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 md:px-6">
+      <div className="text-center mb-2">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Train className="h-8 w-8" />
+          <h1 className="text-3xl font-bold">Seat Chain Builder</h1>
+        </div>
+        <p className="text-muted-foreground">Find optimal seat arrangements for your train journey</p>
+      </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex gap-4 border-b pb-2">
+        <CardHeader className="pb-3">
+          <div className="flex gap-1">
             <button
               type="button"
               onClick={() => {
                 setMode("search");
                 resetSearch();
               }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
                 mode === "search"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-muted/80"
               }`}
             >
               <Search className="h-4 w-4" />
@@ -256,10 +264,10 @@ export default function Home() {
                 setResult(null);
                 setError(null);
               }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
                 mode === "har"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-muted/80"
               }`}
             >
               <Upload className="h-4 w-4" />
@@ -395,7 +403,7 @@ export default function Home() {
                 <>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">
+                      <p className="font-semibold text-lg">
                         {fromStation?.name} → {toStation?.name}
                       </p>
                       <p className="text-sm text-muted-foreground">
@@ -408,11 +416,11 @@ export default function Home() {
                   </div>
 
                   {loading ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {[1, 2, 3].map((i) => (
                         <Card key={i}>
-                          <CardContent className="py-3">
-                            <Skeleton className="h-16 w-full" />
+                          <CardContent className="py-4">
+                            <Skeleton className="h-20 w-full" />
                           </CardContent>
                         </Card>
                       ))}
@@ -451,28 +459,19 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <Card key={i}>
-                <CardHeader className="pb-3">
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-20" />
+                <CardContent className="py-6">
+                  <Skeleton className="h-16 w-full" />
                 </CardContent>
               </Card>
             ))}
           </div>
 
           <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-64 mt-2" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <Skeleton className="h-64 w-full" />
-              </div>
+            <CardContent className="py-6">
+              <Skeleton className="h-48 w-full" />
             </CardContent>
           </Card>
         </>
@@ -481,170 +480,184 @@ export default function Home() {
       {result ? (
         <>
           <Card>
-            <CardHeader>
-              <CardTitle>Results ready</CardTitle>
-              <CardDescription>Source: {result.sourceHarName}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {mode === "search" && searchStep === "results" && (
-                <Button variant="outline" size="sm" className="mr-2" onClick={resetSearch}>
-                  New Search
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => downloadReportHtml(result.reportHtml)}>
-                <Download className="mr-2 h-4 w-4" />
-                Download static HTML report
-              </Button>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold">Results ready</span>
+                  <span className="text-sm text-muted-foreground">— {result.sourceHarName}</span>
+                </div>
+                <div className="flex gap-2">
+                  {mode === "search" && searchStep === "results" && (
+                    <Button variant="outline" size="sm" onClick={resetSearch}>
+                      New Search
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => downloadReportHtml(result.reportHtml)}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Report
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {summaryCards ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              {summaryCards.map((card) => (
-                <Card key={card.label}>
-                  <CardHeader className="pb-3">
-                    <CardDescription>{card.label}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{card.value}</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : null}
+          {hasCollisions && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>Attention:</strong> Seat collision detected. You will need to change seats during your journey.
+              </AlertDescription>
+            </Alert>
+          )}
 
-          <Separator />
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Travelers</span>
+                </div>
+                <div className="text-3xl font-bold">
+                  {isMultiChainOutput(result.seatChain) ? result.seatChain.summary.travelers : travelers}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-4">
+                {coverageData && (
+                  <CoverageProgress covered={coverageData.covered} total={coverageData.total} />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm text-muted-foreground">Seat Changes</span>
+                </div>
+                <div className="text-3xl font-bold">{seatChangesCount}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {seatChangesCount === 0 ? "You'll stay in the same seat" : "Changes required during journey"}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Seat Assignments</h2>
+            <p className="text-sm text-muted-foreground">
+              Your seat plan for each traveler. Changes are highlighted.
+            </p>
+
+            {result.travelerViews.map((traveler) => (
+              <SeatTimeline
+                key={traveler.travelerIndex}
+                travelerIndex={traveler.travelerIndex}
+                changeSteps={traveler.changeSteps}
+              />
+            ))}
+          </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Seat change instructions</CardTitle>
-              <CardDescription>Station to seat plan per traveler</CardDescription>
+            <CardHeader className="cursor-pointer" onClick={() => setShowDetailedView(!showDetailedView)}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Detailed Segment View</CardTitle>
+                  <CardDescription>Per-segment breakdown of seat assignments</CardDescription>
+                </div>
+                {showDetailedView ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {result.travelerViews.map((traveler) => (
-                <div key={traveler.travelerIndex} className="space-y-3">
-                  <h3 className="text-sm font-semibold">Traveler {traveler.travelerIndex}</h3>
-                  <div className="overflow-x-auto rounded-md border">
+            {showDetailedView && (
+              <CardContent>
+                <div className="overflow-x-auto rounded-md border">
+                  {isMultiChainOutput(result.seatChain) ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Station</TableHead>
-                          <TableHead>Carriage</TableHead>
-                          <TableHead>Seat</TableHead>
+                          <TableHead rowSpan={2}>Segment</TableHead>
+                          <TableHead rowSpan={2}>From</TableHead>
+                          <TableHead rowSpan={2}>To</TableHead>
+                          {result.seatChain.travelerChains.map((tc) => (
+                            <TableHead key={tc.travelerIndex} colSpan={2} className="text-center">
+                              Traveler {tc.travelerIndex}
+                            </TableHead>
+                          ))}
+                          <TableHead rowSpan={2}>Status</TableHead>
+                        </TableRow>
+                        <TableRow>
+                          {result.seatChain.travelerChains.map((tc) => (
+                            <React.Fragment key={`sub-${tc.travelerIndex}`}>
+                              <TableHead>Car</TableHead>
+                              <TableHead>Seat</TableHead>
+                            </React.Fragment>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {traveler.changeSteps.map((step, idx) => {
-                          const parsed = parseSeat(step.seat);
+                        {result.seatChain.perSegmentTravelerAssignment.map((seg) => {
+                          const parsedSeats = seg.assignedSeats.map(parseSeat);
                           return (
-                            <TableRow key={`${traveler.travelerIndex}-${idx}`}>
-                              <TableCell>{step.station}</TableCell>
-                              <TableCell className="font-medium">{parsed.carriage ?? "—"}</TableCell>
-                              <TableCell className="font-medium">{parsed.seat ?? "—"}</TableCell>
+                            <TableRow key={seg.segmentIndex}>
+                              <TableCell>{seg.segmentIndex}</TableCell>
+                              <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
+                              <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
+                              {parsedSeats.map((parsed, idx) => (
+                                <React.Fragment key={idx}>
+                                  <TableCell>{parsed.carriage ?? "—"}</TableCell>
+                                  <TableCell>{parsed.seat ?? "—"}</TableCell>
+                                </React.Fragment>
+                              ))}
+                              <TableCell>
+                                {seg.collisionFree ? (
+                                  <Badge variant="outline" className="gap-1 bg-green-50 text-green-700 border-green-200">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    OK
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive" className="gap-1">
+                                    <XCircle className="h-3 w-3" />
+                                    Collision
+                                  </Badge>
+                                )}
+                              </TableCell>
                             </TableRow>
                           );
                         })}
                       </TableBody>
                     </Table>
-                  </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Segment</TableHead>
+                          <TableHead>From</TableHead>
+                          <TableHead>To</TableHead>
+                          <TableHead>Carriage</TableHead>
+                          <TableHead>Seat</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.seatChain.perSegmentAssignment.map((seg) => {
+                          const parsed = parseSeat(seg.assignedSeat);
+                          return (
+                            <TableRow key={seg.segmentIndex}>
+                              <TableCell>{seg.segmentIndex}</TableCell>
+                              <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
+                              <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
+                              <TableCell>{parsed.carriage ?? "—"}</TableCell>
+                              <TableCell>{parsed.seat ?? "—"}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Separator />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Detailed view (per segment)</CardTitle>
-              <CardDescription>Secondary reference table</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-md border">
-                {isMultiChainOutput(result.seatChain) ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead rowSpan={2}>Segment</TableHead>
-                        <TableHead rowSpan={2}>From</TableHead>
-                        <TableHead rowSpan={2}>To</TableHead>
-                        {result.seatChain.travelerChains.map((tc) => (
-                          <TableHead key={tc.travelerIndex} colSpan={2} className="text-center">
-                            Traveler {tc.travelerIndex}
-                          </TableHead>
-                        ))}
-                        <TableHead rowSpan={2}>Collision free</TableHead>
-                      </TableRow>
-                      <TableRow>
-                        {result.seatChain.travelerChains.map((tc) => (
-                          <React.Fragment key={`sub-${tc.travelerIndex}`}>
-                            <TableHead>Carriage</TableHead>
-                            <TableHead>Seat</TableHead>
-                          </React.Fragment>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {result.seatChain.perSegmentTravelerAssignment.map((seg) => {
-                        const parsedSeats = seg.assignedSeats.map(parseSeat);
-                        return (
-                          <TableRow key={seg.segmentIndex}>
-                            <TableCell>{seg.segmentIndex}</TableCell>
-                            <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
-                            <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
-                            {parsedSeats.map((parsed, idx) => (
-                              <React.Fragment key={idx}>
-                                <TableCell>{parsed.carriage ?? "—"}</TableCell>
-                                <TableCell>{parsed.seat ?? "—"}</TableCell>
-                              </React.Fragment>
-                            ))}
-                            <TableCell>
-                              {seg.collisionFree ? (
-                                <Badge variant="outline" className="gap-1">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Yes
-                                </Badge>
-                              ) : (
-                                <Badge variant="destructive" className="gap-1">
-                                  <XCircle className="h-3 w-3" />
-                                  No
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Segment</TableHead>
-                        <TableHead>From</TableHead>
-                        <TableHead>To</TableHead>
-                        <TableHead>Carriage</TableHead>
-                        <TableHead>Seat</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {result.seatChain.perSegmentAssignment.map((seg) => {
-                        const parsed = parseSeat(seg.assignedSeat);
-                        return (
-                          <TableRow key={seg.segmentIndex}>
-                            <TableCell>{seg.segmentIndex}</TableCell>
-                            <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
-                            <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
-                            <TableCell>{parsed.carriage ?? "—"}</TableCell>
-                            <TableCell>{parsed.seat ?? "—"}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-            </CardContent>
+              </CardContent>
+            )}
           </Card>
         </>
       ) : null}
