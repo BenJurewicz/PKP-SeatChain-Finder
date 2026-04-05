@@ -16,339 +16,286 @@ This Next.js application helps train passengers find optimal seating arrangement
 
 **Multi-traveler support:** Can find collision-free seat chains for multiple travelers (1-20), ensuring no two travelers are assigned the same seat in any segment.
 
-## Bilkom API Integration
+## User Flows
 
-The app consumes the **Bilkom train reservation API** (Polish rail system). All API requests must come from a HAR file captured from a browser session on the Bilkom website.
+### Flow A: Manual Search (Primary)
 
-### API Endpoints
+The new primary flow allows users to search for connections directly:
 
-All endpoints are POST requests with JSON payloads. Base URL is extracted from the HAR file (typically `https://[domain]/grm`).
+1. **Station Autocomplete** - User types station names with real-time suggestions
+2. **Date/Time Selection** - User selects journey date and time
+3. **Trip Selection** - App shows available trips, user selects one
+4. **Seat Chain Building** - App automatically fetches seat data and builds chains
 
-#### 1. Journey/Segment Seat Availability: `/grm`
+```
+[Station Input] → [Date/Time] → [Trip List] → [Seat Chain Results]
+```
 
-**Purpose:** Get seat availability for a train journey or specific segment.
+### Flow B: HAR Upload (Advanced)
 
-**Request payload** (extracted from HAR):
+The original flow for users with captured HAR files:
+
+1. **Upload HAR** - User provides HAR file with session data
+2. **Configure Travelers** - Set number of travelers (1-20)
+3. **Seat Chain Building** - App processes segments from HAR
+
+```
+[Upload HAR] → [Set Travelers] → [Seat Chain Results]
+```
+
+## API Routes
+
+### `/api/stations/search` - Station Autocomplete
+
+**Method:** `GET`
+
+**Query Parameters:**
+- `q` - Station name search query (min 2 characters)
+
+**Response:**
 ```json
 {
-  "stationFrom": 5100365,        // EPA station ID (numeric)
-  "stationTo": 5100158,          // EPA station ID (numeric)
-  "stationNumberingSystem": "EPA",
-  "departureDate": "2026-04-05T04:30:00.000Z",
-  "arrivalDate": "2026-04-05T11:04:00.000Z",
-  // ... other fields from HAR (trainNumber, direction, etc.)
+  "stations": [
+    {
+      "name": "Warszawa Centralna",
+      "extId": "5100065",
+      "id": "A=1@O=Warszawa Centralna@X=...",
+      "geoPoint": { "lat": 52.228864, "lon": 21.003233 }
+    }
+  ]
+}
+```
+
+### `/api/trips/search` - Find Train Connections
+
+**Method:** `POST`
+
+**Request Body:**
+```json
+{
+  "fromStation": { "name": "...", "extId": "...", "id": "..." },
+  "toStation": { "name": "...", "extId": "...", "id": "..." },
+  "date": "2026-04-06",
+  "time": "09:00"
 }
 ```
 
 **Response:**
 ```json
 {
-  "stops": [
+  "trips": [
     {
-      "stationNumber": 5100365,
-      "epaDepartureDate": "2026-04-05T04:30:00.000Z",
-      "epaArrivalDate": null,
-      // ... stop metadata
-    },
-    // ... more stops
-  ],
-  "carriages": [
-    {
-      "carriageNumber": 10,
-      "spots": [
-        {
-          "number": 42,
-          "status": "AVAILABLE",  // or "OCCUPIED"
-          "properties": ["CLASS_2", ...],
-          // ... spot metadata
-        },
-        // ... more spots
-      ]
-    },
-    // ... more carriages
+      "tripIndex": 0,
+      "trainName": "TLK 15110",
+      "trainNumber": "15110",
+      "departure": {
+        "stationId": "5100305",
+        "stationName": "Ełk",
+        "dateTime": "2026-04-06T16:36:00"
+      },
+      "arrival": {
+        "stationId": "5101307",
+        "stationName": "Gdańsk Wrzeszcz",
+        "dateTime": "2026-04-06T21:17:00"
+      },
+      "duration": 16860,
+      "stops": [...],
+      "segmentRequest": {
+        "stationFrom": 5100305,
+        "stationTo": 5101307,
+        "vehicleNumber": 15110,
+        "departureDate": "2026-04-06T16:36:00",
+        "arrivalDate": "2026-04-06T21:17:00",
+        "type": "CARRIAGE"
+      }
+    }
   ]
 }
 ```
 
-**Key fields:**
-- `stops[]`: Array of all stations the train stops at (used to derive segment requests)
-- `carriages[].spots[]`: Seat availability data
-  - `status`: "AVAILABLE" or "OCCUPIED"
-  - `properties`: Array including "CLASS_2" or "CLASS_1" (we filter for CLASS_2)
-  - `number`: Seat number within carriage
+### `/api/segments/build` - Build Segment Data
 
-#### 2. Station Name Resolution: `/grm/epaStationName` (primary)
+**Method:** `POST`
 
-**Purpose:** Convert EPA station ID to human-readable name.
-
-**Request:**
+**Request Body:**
 ```json
 {
-  "epaId": 365  // Last 4 digits of EPA station number (e.g., 5100365 → 365)
+  "segmentRequest": {
+    "stationFrom": 5100305,
+    "stationTo": 5101307,
+    "vehicleNumber": 15110,
+    "departureDate": "2026-04-06T16:36:00",
+    "arrivalDate": "2026-04-06T21:17:00"
+  }
 }
 ```
 
-**Response:** Plain text station name (e.g., "Ełk")
+**Response:** Same as `/api/run` (seatChain, travelerViews, reportHtml)
 
-#### 3. Station Name Resolution (fallback): `/grm/hafasStationName`
+### `/api/run` - HAR Upload Flow (Existing)
 
-**Purpose:** Fallback when EPA station name lookup fails (500 error).
+**Method:** `POST`
 
-**Request:**
+**Request:** Multipart form data
+- `harFile` - HAR file
+- `travelers` - Number of travelers (1-20)
+
+**Response:**
 ```json
 {
-  "hafasId": "5100365"  // Full station number as string
+  "seatChain": SeatChainOutput,
+  "travelerViews": TravelerView[],
+  "reportHtml": string,
+  "sourceHarName": string
 }
 ```
-
-**Response:** Plain text station name
-
-### Station Name Resolution Strategy
-
-1. Try EPA endpoint first (module 10000 to get last 4 digits)
-2. If 500 error, fallback to HAFAS endpoint (full ID as string)
-3. Cache resolved names to avoid duplicate requests
-
-## Data Flow
-
-```
-1. User uploads HAR file + selects traveler count
-   ↓
-2. Parse HAR → extract:
-   - Request URL (base /grm endpoint)
-   - Request headers (auth, session cookies)
-   - Request payload (journey parameters)
-   ↓
-3. Call /grm with original payload → get full journey response
-   ↓
-4. Extract stops[] array → derive segment boundaries
-   ↓
-5. For each stop pair (stop[i] → stop[i+1]):
-   - Build segment payload (override stationFrom/To, departure/arrivalDate)
-   - Call /grm for segment
-   - Resolve station names via EPA/HAFAS endpoints
-   ↓
-6. Build segments output structure:
-   {
-     stations: { "5100365": "Ełk", ... },
-     segments: [
-       {
-         segmentIndex: 1,
-         stationFromName: "Ełk",
-         stationToName: "Giżycko",
-         request: { ... },
-         response: { carriages: [...], ... }
-       },
-       ...
-     ]
-   }
-   ↓
-7. Run seat chain algorithm (see below)
-   ↓
-8. Build traveler instruction views (station → seat changes)
-   ↓
-9. Generate static HTML report
-   ↓
-10. Return JSON to client + render UI
-```
-
-## Seat Chain Algorithm
-
-**Goal:** Find the best seat allocation that maximizes coverage and minimizes seat changes.
-
-### Single Traveler
-
-**Input:** Array of available CLASS_2 seats per segment (as Set<string>)
-```typescript
-[
-  Set(["10:42", "10:43", ...]),  // Segment 1 available seats
-  Set(["10:42", "10:43", ...]),  // Segment 2
-  ...
-]
-```
-
-**Algorithm:** Dynamic programming with state = last chosen seat
-- State: `Map<seat | null, [covered, changes, chain]>`
-- For each segment:
-  - For each possible seat choice (including null = no seat):
-    - Consider all previous states
-    - Compute new covered count, seat change count
-    - Keep best candidate for each ending seat
-- Tie-breaking (in order):
-  1. Max covered segments
-  2. Min seat changes
-  3. Lexicographic ordering of seat chain (deterministic)
-
-**Output:**
-```typescript
-{
-  summary: {
-    totalSegments: 12,
-    coveredSegments: 11,
-    uncoveredSegments: 1,
-    seatChanges: 2
-  },
-  perSegmentAssignment: [
-    { segmentIndex: 1, assignedSeat: "10:42", hasSeat: true, ... },
-    ...
-  ],
-  intervals: [
-    { seat: "10:42", startSegmentIndex: 1, endSegmentIndex: 3, ... },
-    ...
-  ]
-}
-```
-
-### Multi-Traveler
-
-**Strategy:** Sequential allocation (greedy by best-chain-first)
-1. Run single-traveler algorithm on full availability → allocate to Traveler 1
-2. Remove Traveler 1's seats from availability
-3. Run algorithm on reduced availability → allocate to Traveler 2
-4. Repeat for all travelers
-
-**Collision detection:** After allocation, verify no two travelers share a seat in any segment (set `collisionFree` flag per segment and overall).
-
-**Output:**
-```typescript
-{
-  summary: {
-    travelers: 2,
-    totalSegments: 12,
-    totalTravelerSegments: 24,  // segments × travelers
-    coveredTravelerSegments: 21,
-    totalSeatChanges: 3,
-    collisionFree: true,
-    allocationStrategy: "sequential-best-chain"
-  },
-  perSegmentTravelerAssignment: [
-    {
-      segmentIndex: 1,
-      assignedSeats: ["10:42", "10:43"],  // Array indexed by traveler
-      collisionFree: true
-    },
-    ...
-  ],
-  travelerChains: [
-    { travelerIndex: 1, summary: {...}, perSegmentAssignment: [...], intervals: [...] },
-    { travelerIndex: 2, ... }
-  ]
-}
-```
-
-## Seat Representation
-
-Seats are identified as `"carriageNumber:spotNumber"` (e.g., `"10:42"` = carriage 10, spot 42).
 
 ## Project Structure
 
 ```
 webapp/
 ├── app/
-│   ├── layout.tsx           # Root layout
-│   ├── page.tsx             # Main UI (upload form + results)
-│   ├── globals.css          # Dark theme styles
+│   ├── layout.tsx
+│   ├── page.tsx                    # Main UI with tabs for both flows
+│   ├── globals.css
 │   └── api/
-│       └── run/
-│           └── route.ts     # POST /api/run endpoint (pipeline orchestration)
+│       ├── run/route.ts            # HAR upload endpoint
+│       ├── stations/search/route.ts # Station autocomplete
+│       ├── trips/search/route.ts    # Trip search endpoint
+│       └── segments/build/route.ts  # Segment builder endpoint
+├── components/
+│   ├── file-upload.tsx
+│   ├── station-input.tsx           # Station autocomplete component
+│   ├── date-time-input.tsx         # Date/time picker
+│   ├── trip-list.tsx               # Trip selection list
+│   └── ui/                         # shadcn/ui components
 ├── lib/
-│   ├── types.ts             # Shared TypeScript types
-│   ├── har.ts               # HAR parsing (extract URL, headers, payload)
-│   ├── http.ts              # HTTP client (gzip/br/deflate decode, error handling)
-│   ├── bilkom.ts            # Bilkom API client (journey + segments + station names)
-│   ├── seat-chain.ts        # Seat chain optimization algorithm
-│   ├── instructions.ts      # Derive station→seat change steps from chains
-│   └── report.ts            # Generate static HTML report
-└── AGENTS.md                # This file
+│   ├── types.ts                    # TypeScript types
+│   ├── constants.ts                # Shared constants (API URLs, headers)
+│   ├── http.ts                     # HTTP client (GET/POST support)
+│   ├── har.ts                      # HAR parsing
+│   ├── bilkom.ts                   # Bilkom API client
+│   ├── station-search.ts           # Station autocomplete API
+│   ├── trip-search.ts              # Trip HTML parsing
+│   ├── segment-request.ts          # Build segment requests from trips
+│   ├── seat-chain.ts               # Seat chain algorithm
+│   ├── instructions.ts             # Build traveler instructions
+│   └── report.ts                   # Generate static HTML report
+└── AGENTS.md
 ```
 
-## Key Implementation Details
+## Key Files
 
-### HAR Parsing (`lib/har.ts`)
-- Extracts first entry from HAR `log.entries[]`
-- Derives 3 endpoints from request URL:
-  - `/grm` (journey/segments)
-  - `/grm/epaStationName`
-  - `/grm/hafasStationName`
-- Strips `Content-Length` header (recomputed per request)
-- Parses `request.postData.text` as JSON payload
+### `lib/constants.ts`
 
-### HTTP Client (`lib/http.ts`)
-- Uses Node.js `http`/`https` modules (not fetch)
-- **TLS verification disabled** (`rejectUnauthorized: false`) for Bilkom API
-- Handles gzip/br/deflate response encoding
-- 30s timeout
-- Custom `HttpError` class for 4xx/5xx responses
+Shared constants including:
+- `BILKOM_STATION_SEARCH_URL` - Station search API endpoint
+- `BILKOM_TRIP_SEARCH_URL` - Trip search HTML endpoint
+- `DEFAULT_BILKOM_AUTH` - Default authorization header
+- `DEFAULT_BILKOM_GRM_URL` - Default GRM endpoint
+- `DEFAULT_BILKOM_HEADERS` - Default headers for API requests
+- `DEFAULT_SEARCH_HEADERS` - Headers for station/trip search
 
-### API Route (`app/api/run/route.ts`)
-- `runtime = "nodejs"` (required for http module + file uploads)
-- `dynamic = "force-dynamic"` (no static optimization)
-- Accepts multipart form data:
-  - `harFile`: File (must end in .har)
-  - `travelers`: Number (1-20)
-- Returns JSON:
-  ```typescript
-  {
-    seatChain: SeatChainOutput,
-    travelerViews: TravelerView[],
-    reportHtml: string,
-    sourceHarName: string
-  }
-  ```
-- Error responses: `{ error: string }` with appropriate HTTP status
+### `lib/station-search.ts`
 
-### UI (`app/page.tsx`)
-- Client component (`"use client"`)
-- Upload HAR → set travelers → submit
-- Shows:
-  1. **Seat change instructions** (primary): Station → Seat table per traveler
-  2. **Detailed view (per segment)**: Full segment-by-segment breakdown
-- Download button triggers browser download of `reportHtml` as `seat-chain-report.html`
+Station autocomplete using the Bilkom API:
+- Queries `https://bilkom.pl/stacje/szukaj?q=<query>&source=FROMSTATION`
+- Returns station name, extId, id, and coordinates
 
-### Static Report (`lib/report.ts`)
-- Self-contained HTML file (inline CSS, no external deps)
-- Dark theme matching main app
-- Contains only:
-  1. Seat change instructions
-  2. Detailed per-segment view
-- Can be opened offline after download
+### `lib/trip-search.ts`
+
+Trip search via HTML parsing:
+- Queries `https://bilkom.pl/podroz` with station IDs and datetime
+- Parses HTML to extract trip data:
+  - Train name, number, duration
+  - Departure/arrival times and stations
+  - All stops along the route
+  - Segment request ready for processing
+
+### `lib/segment-request.ts`
+
+Builds segment requests from trip data:
+- Takes a `SegmentRequestConfig` (station IDs, vehicle number, dates)
+- Returns `HarRequestConfig` compatible with `buildSegmentsOutput()`
+
+## Bilkom API Integration
+
+### API Endpoints
+
+1. **Station Search:** `GET https://bilkom.pl/stacje/szukay?q=<query>&source=FROMSTATION`
+2. **Trip Search:** `GET https://bilkom.pl/podroz?<params>` (returns HTML)
+3. **Segment Data:** `POST https://beta.bilkom.pl/grm`
+4. **Station Names:**
+   - `POST https://beta.bilkom.pl/grm/epaStationName` (primary)
+   - `POST https://beta.bilkom.pl/grm/hafasStationName` (fallback)
+
+### Authentication
+
+Two modes:
+1. **Manual Search Flow:** Uses default auth header (may expire)
+2. **HAR Upload Flow:** Extracts auth from uploaded HAR file (fresh session)
 
 ## Running the App
 
 ```bash
 cd webapp
 pnpm install   # First time only
-pnpm dev       # Start dev server on http://localhost:3000
-pnpm build     # Production build
-pnpm start     # Run production build
+pnpm dev        # Start dev server on http://localhost:3000
+pnpm build      # Production build
+pnpm start      # Run production build
 ```
 
 ## Testing
 
-Use the HAR files in parent directory:
-- `../blikom.har` - Original test journey (Ełk → Gdańsk Wrzeszcz, 12 segments)
-- `../blikom-new.har` - Alternative journey for validation
+### Manual Search Flow
+1. Navigate to `http://localhost:3000`
+2. Enter departure and destination stations (autocomplete)
+3. Select date and time
+4. Click "Search Trips"
+5. Select a trip from the results
+6. View seat chain results
 
-Test API directly:
+### HAR Upload Flow
+1. Navigate to `http://localhost:3000`
+2. Click "Upload HAR File" tab
+3. Upload HAR file from `../blikom.har` or `../blikom-new.har`
+4. Set number of travelers
+5. Click "Build seat chains"
+
+### Test API Endpoints Directly
+
 ```bash
+# Station search
+curl "http://localhost:3000/api/stations/search?q=Warszawa"
+
+# Trip search
+curl -X POST http://localhost:3000/api/trips/search \
+  -H "Content-Type: application/json" \
+  -d '{"fromStation":{"name":"Ełk","extId":"5100305","id":"..."},"toStation":{"name":"Gdańsk Wrzeszcz","extId":"5101307","id":"..."},"date":"2026-04-06","time":"09:00"}'
+
+# Segment build (from selected trip)
+curl -X POST http://localhost:3000/api/segments/build \
+  -H "Content-Type: application/json" \
+  -d '{"segmentRequest":{"stationFrom":5100305,"stationTo":5101307,"vehicleNumber":15110,"departureDate":"2026-04-06T16:36:00","arrivalDate":"2026-04-06T21:17:00"}}'
+
+# HAR upload (existing flow)
 curl -X POST -F "harFile=@../blikom.har" -F "travelers=2" http://localhost:3000/api/run
 ```
 
 ## Important Constraints
 
-1. **HAR files are session-specific**: Auth tokens/cookies expire. Fresh HAR capture needed if API returns 401/403.
-2. **TLS verification disabled**: Required for Bilkom API (may use self-signed certs or local dev environment).
-3. **No CORS handling needed**: HAR contains session context, requests are server-side from Next.js API route.
-4. **Deterministic algorithm**: Same HAR + traveler count always produces same result (lexicographic tie-breaking).
-5. **Class 2 only**: Algorithm filters for `CLASS_2` seats (hard-coded, could be parameterized).
-6. **Sequential allocation**: Multi-traveler allocation is greedy (not globally optimal, but fast and predictable).
+1. **HAR auth expires**: HAR sessions have limited lifetime - fresh captures needed
+2. **Default auth may fail**: Manual search uses hardcoded auth that may expire
+3. **HTML parsing fragile**: Trip search relies on parsing HTML - may break if site changes
+4. **TLS verification disabled**: Required for Bilkom API
+5. **No CORS**: All API calls are server-side
+6. **Class 2 seats only**: Currently filters for CLASS_2 seats only
+7. **Sequential allocation**: Multi-traveler uses greedy approach
 
-## Future Enhancement Ideas
+## Future Enhancements
 
-- Parameterize seat class (CLASS_1 vs CLASS_2)
-- Add carriage preferences (quiet zones, family carriages)
-- Support for seat pairs/groups (keep travelers together)
-- Visualize seat maps per carriage
-- Save/load results from browser storage
+- Add date/time picker improvements
+- Cache station search results
+- Show seat maps visually
 - Export to calendar/ticket format
-- Real-time seat updates (websocket polling)
+- Real-time seat updates via polling

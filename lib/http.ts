@@ -1,6 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import zlib from "node:zlib";
+import { SEARCH_REQUEST_TIMEOUT_MS } from "./constants";
 
 export class HttpError extends Error {
   status: number;
@@ -30,25 +31,26 @@ function decodeBuffer(data: Buffer, encodingHeader: string | string[] | undefine
 async function requestText(
   url: string,
   headers: Record<string, string>,
-  body: string,
+  body: string | null,
+  timeoutMs: number = 30_000,
 ): Promise<string> {
   const parsed = new URL(url);
   const isHttps = parsed.protocol === "https:";
   const transport = isHttps ? https : http;
 
-  const requestHeaders: Record<string, string> = {
-    ...headers,
-    "Content-Length": Buffer.byteLength(body).toString(),
-  };
+  const requestHeaders: Record<string, string> = { ...headers };
+  if (body !== null) {
+    requestHeaders["Content-Length"] = Buffer.byteLength(body).toString();
+  }
 
   const options: https.RequestOptions = {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port ? Number(parsed.port) : undefined,
     path: `${parsed.pathname}${parsed.search}`,
-    method: "POST",
+    method: body !== null ? "POST" : "GET",
     headers: requestHeaders,
-    timeout: 30_000,
+    timeout: timeoutMs,
   };
 
   if (isHttps) {
@@ -76,7 +78,9 @@ async function requestText(
       reject(new Error("Request timeout"));
     });
     req.on("error", (error) => reject(error));
-    req.write(body);
+    if (body !== null) {
+      req.write(body);
+    }
     req.end();
   });
 }
@@ -96,4 +100,17 @@ export async function postText(
   payload: unknown,
 ): Promise<string> {
   return await requestText(url, headers, JSON.stringify(payload));
+}
+
+export async function getJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
+  const text = await requestText(url, headers ?? {}, null);
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    throw new Error(`Invalid JSON response: ${(error as Error).message}`);
+  }
+}
+
+export async function getText(url: string, headers?: Record<string, string>): Promise<string> {
+  return await requestText(url, headers ?? {}, null, SEARCH_REQUEST_TIMEOUT_MS);
 }
