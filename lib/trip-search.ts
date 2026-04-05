@@ -47,7 +47,19 @@ function extractCarrierId(trainName: string): string {
 
 function timestampToIso(tsMs: number): string {
   const date = new Date(tsMs);
-  return date.toISOString().replace(/\.\d{3}Z$/, "");
+  const formatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Warsaw",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
 function parseTimestamp(ts: number | null | undefined): string | null {

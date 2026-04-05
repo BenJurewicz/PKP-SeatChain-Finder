@@ -259,7 +259,7 @@ function buildSingleChainOutput(
   for (let i = 1; i < chain.length; i += 1) {
     const prev = chain[i - 1];
     const current = chain[i];
-    if (prev && current && prev !== current) {
+    if (prev !== current) {
       seatChanges += 1;
     }
   }
@@ -339,7 +339,7 @@ export function buildSeatChainOutput(data: SegmentsOutput, travelers: number): S
     for (let i = 1; i < chain.length; i += 1) {
       const prev = chain[i - 1];
       const current = chain[i];
-      if (prev && current && prev !== current) {
+      if (prev !== current) {
         totalSeatChanges += 1;
       }
     }

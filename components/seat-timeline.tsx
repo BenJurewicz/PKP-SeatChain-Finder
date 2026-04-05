@@ -88,12 +88,7 @@ export function SeatTimeline({ travelerIndex, changeSteps }: SeatTimelineProps) 
                     </div>
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "flex flex-col rounded-lg border p-3 min-w-[140px]",
-                    isChange ? "bg-amber-50/50 border-amber-200" : "bg-card"
-                  )}
-                >
+                <div className="flex flex-col rounded-lg border p-3 min-w-[140px] bg-card">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
                     <MapPin className="h-3 w-3" />
                     <span className="truncate">{group.station}</span>
