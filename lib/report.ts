@@ -1,5 +1,6 @@
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
 import type { TravelerView } from "@/lib/instructions";
+import { parseSeat } from "@/lib/utils";
 
 function escapeHtml(value: string): string {
   return value
@@ -17,17 +18,17 @@ export function generateStaticReportHtml(
   const instructionBlocks = travelerViews
     .map((traveler) => {
       const rows = traveler.changeSteps
-        .map(
-          (step) =>
-            `<tr><td>${escapeHtml(step.station)}</td><td>${escapeHtml(step.seat ?? "—")}</td></tr>`,
-        )
+        .map((step) => {
+          const parsed = parseSeat(step.seat);
+          return `<tr><td>${escapeHtml(step.station)}</td><td>${escapeHtml(parsed.carriage ?? "—")}</td><td>${escapeHtml(parsed.seat ?? "—")}</td></tr>`;
+        })
         .join("");
       return `
       <section class="card">
         <h3>Traveler ${traveler.travelerIndex}</h3>
         <div class="scroll">
           <table>
-            <thead><tr><th>Station</th><th>Seat</th></tr></thead>
+            <thead><tr><th>Station</th><th>Carriage</th><th>Seat</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -35,21 +36,28 @@ export function generateStaticReportHtml(
     })
     .join("");
 
+  const detailedTableHeader = isMultiChainOutput(seatChain)
+    ? `<thead><tr><th rowspan="2">Segment</th><th rowspan="2">From</th><th rowspan="2">To</th>${seatChain.travelerChains.map((tc) => `<th colspan="2" style="text-align:center;">Traveler ${tc.travelerIndex}</th>`).join("")}</tr><tr>${seatChain.travelerChains.map(() => `<th>Carriage</th><th>Seat</th>`).join("")}</tr></thead>`
+    : `<thead><tr><th>Segment</th><th>From</th><th>To</th><th>Carriage</th><th>Seat</th></tr></thead>`;
+
   const detailedRows = isMultiChainOutput(seatChain)
     ? seatChain.perSegmentTravelerAssignment
         .map((seg) => {
           const from = seg.stationFromName ?? String(seg.stationFrom);
           const to = seg.stationToName ?? String(seg.stationTo);
-          const seats = seg.assignedSeats.map((seat) => seat ?? "—").join(", ");
-          return `<tr><td>${seg.segmentIndex}</td><td>${escapeHtml(from)}</td><td>${escapeHtml(to)}</td><td>${escapeHtml(seats)}</td></tr>`;
+          const parsedSeats = seg.assignedSeats.map(parseSeat);
+          const travelerCells = parsedSeats
+            .map((parsed) => `<td>${escapeHtml(parsed.carriage ?? "—")}</td><td>${escapeHtml(parsed.seat ?? "—")}</td>`)
+            .join("");
+          return `<tr><td>${seg.segmentIndex}</td><td>${escapeHtml(from)}</td><td>${escapeHtml(to)}</td>${travelerCells}</tr>`;
         })
         .join("")
     : seatChain.perSegmentAssignment
         .map((seg) => {
           const from = seg.stationFromName ?? String(seg.stationFrom);
           const to = seg.stationToName ?? String(seg.stationTo);
-          const seat = seg.assignedSeat ?? "—";
-          return `<tr><td>${seg.segmentIndex}</td><td>${escapeHtml(from)}</td><td>${escapeHtml(to)}</td><td>${escapeHtml(seat)}</td></tr>`;
+          const parsed = parseSeat(seg.assignedSeat);
+          return `<tr><td>${seg.segmentIndex}</td><td>${escapeHtml(from)}</td><td>${escapeHtml(to)}</td><td>${escapeHtml(parsed.carriage ?? "—")}</td><td>${escapeHtml(parsed.seat ?? "—")}</td></tr>`;
         })
         .join("");
 
@@ -85,7 +93,7 @@ export function generateStaticReportHtml(
         <h2>Detailed view (per segment)</h2>
         <div class="card scroll">
           <table>
-            <thead><tr><th>Segment</th><th>From</th><th>To</th><th>Seat(s)</th></tr></thead>
+            ${detailedTableHeader}
             <tbody>${detailedRows}</tbody>
           </table>
         </div>
