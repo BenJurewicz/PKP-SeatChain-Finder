@@ -1,4 +1,5 @@
 import { buildSegmentsOutput } from "@/lib/bilkom";
+import { extractBlockedSeats } from "@/lib/blocked-seats";
 import { parseHarRequestConfig } from "@/lib/har";
 import { buildTravelerViews } from "@/lib/instructions";
 import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
@@ -33,6 +34,7 @@ export async function POST(request: Request): Promise<Response> {
     const segmentsOutput = await buildSegmentsOutput(config);
     const seatChain = buildSeatChainOutput(segmentsOutput, travelers);
     const travelerViews = buildTravelerViews(seatChain);
+    const blockedSeats = extractBlockedSeats(segmentsOutput);
 
     // Extract trip summary from segments
     const firstSegment = segmentsOutput.segments[0];
@@ -72,6 +74,7 @@ export async function POST(request: Request): Promise<Response> {
         arrivalTime: tripSummary.arrivalTime,
         duration: tripSummary.duration,
       },
+      blockedSeats,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

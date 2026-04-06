@@ -163,6 +163,7 @@ The HAR tutorial in `app/page.tsx` guides users through:
   "travelerViews": TravelerView[],
   "reportHtml": string,
   "sourceHarName": string,
+  "blockedSeats": BlockedSeat[],
   "tripInfo": {
     "trainName": "TLK 15110",
     "carrierId": "TLK",
@@ -196,6 +197,7 @@ webapp/
 │   ├── coverage-progress.tsx       # Journey coverage percentage bar
 │   ├── seat-timeline.tsx           # Seat assignment timeline view
 │   ├── train-carrier-icon.tsx      # Carrier logo (EIP/IC/TLK) display
+│   ├── blocked-seats-section.tsx   # Collapsible blocked seats display
 │   └── ui/                         # shadcn/ui components
 ├── lib/
 │   ├── types.ts                    # TypeScript types (Trip, Station, etc.)
@@ -208,6 +210,7 @@ webapp/
 │   ├── trip-search.ts              # Trip HTML parsing
 │   ├── segment-request.ts          # Build segment requests from trips
 │   ├── seat-chain.ts               # Seat chain algorithm
+│   ├── blocked-seats.ts            # Extract temporarily blocked seats
 │   ├── instructions.ts             # Build traveler instructions
 │   └── report.ts                   # Generate static HTML report
 ├── public/
@@ -251,6 +254,18 @@ User-facing instruction types:
 ### `lib/report.ts`
 
 - **`TripSummary`** - Trip metadata for static report (trainName, carrierId, times, duration)
+
+### `lib/types.ts` (Additional)
+
+- **`BlockedSeat`** - Temporarily blocked seat with validTo timestamp:
+  - seatNumber, carriageNumber - Seat identification
+  - trainClass - CLASS_1 or CLASS_2
+  - position - AISLE, MIDDLE, or WINDOW
+  - reason - Human-readable block reason (e.g., "Politician")
+  - validTo - ISO timestamp when seat becomes available
+  - firstSegmentIndex, lastSegmentIndex - Segment span
+  - firstStationName, lastStationName - Journey span
+  - firstDepartureTime, lastArrivalTime - Time span
 
 ## Key Conventions
 
@@ -373,6 +388,17 @@ HAR file drag & drop upload:
 - Shows file name and size after selection
 - Disabled state during processing
 
+### `components/blocked-seats-section.tsx`
+
+Collapsible section for temporarily blocked seats that will become available:
+
+- Shows seats blocked with `validTo` timestamp (permanent blocks like EMPLOYEE are excluded)
+- Displays seat number, carriage, class (1st/2nd), position (aisle/middle/window)
+- Shows reason for block (e.g., "Politician") and when seat becomes available
+- Displays journey span (first station → last station) for seats blocked across multiple segments
+- Sorted by: validTo date (earliest first) → carriage number → seat number
+- Merges duplicate seats across segments to show each seat only once
+
 ## Key Files
 
 ### `lib/utils.ts`
@@ -431,6 +457,17 @@ Builds segment requests from trip data:
 - Takes a `SegmentRequestConfig` (station IDs, vehicle number, dates)
 - Returns config compatible with `buildSegmentsOutput()`
 - Includes `stationNumberingSystem` (defaults to "HAFAS")
+
+### `lib/blocked-seats.ts`
+
+Extracts temporarily blocked seats that will become available:
+
+- `extractBlockedSeats(data: SegmentsOutput)` - Processes segments to find blocked seats
+- Filters for seats with `specialProperties` containing `validTo` timestamp
+- Parses properties to extract class (CLASS_1/CLASS_2) and position (AISLE/MIDDLE/WINDOW)
+- Merges duplicate seats across segments (keeps earliest validTo)
+- Returns seats sorted by: validTo → carriage → seat number
+- Excludes permanent blocks (EMPLOYEE without validTo)
 
 ## Bilkom API Integration
 
@@ -506,10 +543,11 @@ curl -X POST -F "harFile=@../blikom.har" -F "travelers=2" http://localhost:3000/
 3. **HTML parsing fragile**: Trip search relies on parsing HTML - may break if site changes
 4. **TLS verification disabled**: Required for Bilkom API (self-signed certificates)
 5. **No CORS**: All API calls are server-side
-6. **Class 2 seats only**: Currently filters for CLASS_2 seats only
-7. **Sequential allocation**: Multi-traveler uses greedy approach
-8. **Polish timezone**: All times must use `Europe/Warsaw` for correct display
-9. **Direct connections only**: HAR flow only supports single-train journeys
+6. **Class 2 seats only for seat chains**: Seat chain algorithmfilters for CLASS_2 seats only
+7. **Blocked seats show both classes**: Blocked seats section displays CLASS_1 and CLASS_2
+8. **Sequential allocation**: Multi-traveler uses greedy approach
+9. **Polish timezone**: All times must use `Europe/Warsaw` for correct display
+10. **Direct connections only**: HAR flow only supports single-train journeys
 
 ## Future Enhancements
 

@@ -69,3 +69,18 @@ export interface Trip {
   stops: TripStop[];
   segmentRequest: JsonObject;
 }
+
+export interface BlockedSeat {
+  seatNumber: number;
+  carriageNumber: number;
+  trainClass: "CLASS_1" | "CLASS_2";
+  position: "AISLE" | "MIDDLE" | "WINDOW";
+  reason: string;
+  validTo: string;
+  firstSegmentIndex: number;
+  lastSegmentIndex: number;
+  firstStationName?: string;
+  lastStationName?: string;
+  firstDepartureTime?: string;
+  lastArrivalTime?: string;
+}

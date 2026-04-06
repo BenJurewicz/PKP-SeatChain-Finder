@@ -3,7 +3,7 @@
 import React, { FormEvent, useMemo, useState } from "react";
 import type { TravelerView } from "@/lib/instructions";
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
-import type { Station, Trip } from "@/lib/types";
+import type { Station, Trip, BlockedSeat } from "@/lib/types";
 import type { TripSummary } from "@/lib/report";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { TripList } from "@/components/trip-list";
 import { CoverageProgress } from "@/components/coverage-progress";
 import { SeatTimeline } from "@/components/seat-timeline";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
+import { BlockedSeatsSection } from "@/components/blocked-seats-section";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
 
@@ -61,6 +62,7 @@ type RunResponse = {
   travelerViews: TravelerView[];
   reportHtml: string;
   sourceHarName: string;
+  blockedSeats?: BlockedSeat[];
   tripInfo?: {
     trainName: string;
     carrierId: string;
@@ -249,9 +251,11 @@ export default function Home() {
       const { buildSeatChainOutput } = await import("@/lib/seat-chain");
       const { buildTravelerViews } = await import("@/lib/instructions");
       const { generateStaticReportHtml } = await import("@/lib/report");
+      const { extractBlockedSeats } = await import("@/lib/blocked-seats");
 
       const seatChain = buildSeatChainOutput(segmentsData, travelers);
       const travelerViews = buildTravelerViews(seatChain);
+      const blockedSeats = extractBlockedSeats(segmentsData);
       
       const tripSummary: TripSummary = {
         trainName: trip.trainName,
@@ -270,6 +274,7 @@ export default function Home() {
         travelerViews,
         reportHtml,
         sourceHarName: `${trip.trainName} (${trip.departure.stationName} → ${trip.arrival.stationName})`,
+        blockedSeats,
         tripInfo: {
           trainName: trip.trainName,
           carrierId: trip.carrierId,
@@ -705,6 +710,10 @@ export default function Home() {
               />
             ))}
           </div>
+
+          {result.blockedSeats && result.blockedSeats.length > 0 && (
+            <BlockedSeatsSection blockedSeats={result.blockedSeats} />
+          )}
 
           <Card>
             <CardHeader className="cursor-pointer" onClick={() => setShowDetailedView(!showDetailedView)}>
