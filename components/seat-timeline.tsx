@@ -125,14 +125,20 @@ export function SeatTimeline({
                     </div>
                   )}
                   <div className="text-sm">
-                    <span className="font-medium">Carriage</span>{" "}
-                    {group.carriage ?? "—"}, <span className="font-medium">Seat</span>{" "}
-                    {group.seat ?? "—"}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {segmentCount} {segmentCount === 1 ? "segment" : "segments"} ({percentage}
-                    %)
-                  </div>
+                  {group.seat === null ? (
+                    <span className="text-muted-foreground">No seat available</span>
+                  ) : (
+                    <>
+                      <span className="font-medium">Carriage</span>{" "}
+                      {group.carriage}, <span className="font-medium">Seat</span>{" "}
+                      {group.seat}
+                    </>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {segmentCount} {segmentCount === 1 ? "segment" : "segments"} ({percentage}
+                  %)
+                </div>
                 </div>
                 {idx < groups.length - 1 && (
                   <div className="flex items-center px-1">
@@ -189,9 +195,15 @@ export function SeatTimeline({
                 </div>
               </div>
               <div className="text-sm">
-                <span className="font-medium">Carriage</span>{" "}
-                {group.carriage ?? "—"}, <span className="font-medium">Seat</span>{" "}
-                {group.seat ?? "—"}
+                {group.seat === null ? (
+                  <span className="text-muted-foreground">No seat available</span>
+                ) : (
+                  <>
+                    <span className="font-medium">Carriage</span>{" "}
+                    {group.carriage}, <span className="font-medium">Seat</span>{" "}
+                    {group.seat}
+                  </>
+                )}
               </div>
             </div>
           );
