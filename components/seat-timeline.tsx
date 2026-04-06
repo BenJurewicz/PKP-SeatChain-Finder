@@ -167,7 +167,7 @@ export function SeatTimeline({
 
           return (
             <div key={idx} className="p-4 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between">
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
@@ -179,20 +179,19 @@ export function SeatTimeline({
                     </div>
                   )}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {segmentCount} {segmentCount === 1 ? "segment" : "segments"}
+                <div className="flex flex-col items-end">
+                  <div className="text-xs text-muted-foreground">
+                    {segmentCount} {segmentCount === 1 ? "segment" : "segments"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {percentage}%
+                  </div>
                 </div>
               </div>
               <div className="text-sm">
                 <span className="font-medium">Carriage</span>{" "}
                 {group.carriage ?? "—"}, <span className="font-medium">Seat</span>{" "}
                 {group.seat ?? "—"}
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-gray-100">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${percentage}%` }}
-                />
               </div>
             </div>
           );

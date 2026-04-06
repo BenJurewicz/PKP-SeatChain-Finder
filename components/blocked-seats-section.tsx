@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, Train } from "lucide-react";
+import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BlockedSeat } from "@/lib/types";
 
@@ -9,12 +9,10 @@ interface BlockedSeatsSectionProps {
   blockedSeats: BlockedSeat[];
 }
 
-function formatDateTime(iso: string): string {
+function formatTime(iso: string): string {
   try {
     const date = new Date(iso);
-    return date.toLocaleString("pl-PL", {
-      month: "short",
-      day: "numeric",
+    return date.toLocaleTimeString("pl-PL", {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: "Europe/Warsaw",
@@ -24,17 +22,16 @@ function formatDateTime(iso: string): string {
   }
 }
 
-function formatTime(iso: string | undefined): string {
-  if (!iso) return "";
+function formatDate(iso: string): string {
   try {
     const date = new Date(iso);
-    return date.toLocaleTimeString("pl-PL", {
-      hour: "2-digit",
-      minute: "2-digit",
+    return date.toLocaleDateString("pl-PL", {
+      month: "short",
+      day: "numeric",
       timeZone: "Europe/Warsaw",
     });
   } catch {
-    return "";
+    return iso;
   }
 }
 
@@ -65,56 +62,64 @@ export function BlockedSeatsSection({ blockedSeats }: BlockedSeatsSectionProps) 
           </span>
         </summary>
 
-        <div className="mt-4 space-y-2">
+        <div className="flex flex-wrap justify-center gap-3 mt-4">
           {blockedSeats.map((seat, index) => {
-            const showJourney = seat.firstStationName !== seat.lastStationName;
-            
             return (
               <div
                 key={`${seat.carriageNumber}-${seat.seatNumber}-${index}`}
-                className="p-3 bg-card border rounded-lg"
+                className="w-68 p-4 bg-card border rounded-lg flex flex-col"
               >
-                <div className="flex items-center gap-2 font-medium flex-wrap">
-                  <Train className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span>
-                    Carriage {seat.carriageNumber}, Seat {seat.seatNumber}
-                  </span>
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <div className="text-lg font-semibold">
+                      Carriage {seat.carriageNumber}
+                    </div>
+                    <div className="text-lg font-semibold">
+                      Seat {seat.seatNumber}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-end">
+                    <div className="text-xs text-muted-foreground">
+                      Available at
+                    </div>
+                    <div className="text-xl font-medium">
+                      {formatTime(seat.validTo)}
+                    </div>
+                    <div className="text-base">
+                      {formatDate(seat.validTo)}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 mt-3">
                   <span
                     className={cn(
-                      "text-xs px-2 py-0.5 rounded-full",
+                      "text-sm px-2 py-0.5 rounded-full",
                       seat.trainClass === "CLASS_1"
                         ? "bg-blue-100 text-blue-800"
                         : "bg-green-100 text-green-800"
                     )}
                   >
-                    {seat.trainClass === "CLASS_1" ? "1st Class" : "2nd Class"}
+                    {seat.trainClass === "CLASS_1" ? "1st" : "2nd"}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                  <span className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
                     {seat.position}
                   </span>
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  <span>Blocked for: {seat.reason}</span>
-                  <span className="mx-2">•</span>
-                  <span>Available: {formatDateTime(seat.validTo)}</span>
-                </div>
+                
                 {seat.firstStationName && seat.lastStationName && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {showJourney ? (
-                      <>
-                        Journey: {seat.firstStationName} → {seat.lastStationName}
-                        {seat.firstDepartureTime && seat.lastArrivalTime && (
-                          <> ({formatTime(seat.firstDepartureTime)} - {formatTime(seat.lastArrivalTime)})</>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        Segment: {seat.firstStationName}
-                        {seat.firstDepartureTime && <> ({formatTime(seat.firstDepartureTime)})</>}
-                      </>
+                  <div className="text-sm text-muted-foreground mt-2">
+                    {seat.firstStationName} → {seat.lastStationName}
+                    {seat.firstDepartureTime && seat.lastArrivalTime && (
+                      <span> ({formatTime(seat.firstDepartureTime)} - {formatTime(seat.lastArrivalTime)})</span>
                     )}
                   </div>
                 )}
+                
+                <div className="text-xs text-muted-foreground mt-2">
+                  Blocked: {seat.reason}
+                </div>
               </div>
             );
           })}
