@@ -324,6 +324,37 @@ The search flow uses a state machine:
 - `mode`: `"search"` or `"har"` (tab toggle)
 - Reset with `resetSearch()` clears all state
 
+### UI Conventions
+
+**"No Seat Available" Display:**
+
+When a seat is `null` (no seat assigned), display `"No seat available"` in muted text (`text-muted-foreground`) instead of showing dash characters or empty fields.
+
+```tsx
+// Instead of:
+<span>Carriage {carriage ?? "—"}, Seat {seat ?? "—"}</span>
+
+// Use:
+{seat === null ? (
+  <span className="text-muted-foreground">No seat available</span>
+) : (
+  <span>Carriage {carriage}, Seat {seat}</span>
+)}
+```
+
+**Blocked Seats Card Layout:**
+
+Cards use `w-68` (272px) fixed width to fit 3 per row on desktop:
+- Header: Left side (carriage/seat) + Right side (availability time/date)
+- Middle: Class + Position badges
+- Bottom: Journey span + Reason
+
+**Seat Timeline Mobile vs Desktop:**
+
+- Desktop: Horizontal timeline with segment cards, arrows between groups
+- Mobile: Vertical stack of cards, segment count + percentage on right side
+- Both: "No seat available" displayed as muted text when seat is null
+
 ## UI Components
 
 ### `components/station-input.tsx`
@@ -364,13 +395,38 @@ Journey coverage progress bar:
 
 ### `components/seat-timeline.tsx`
 
-Seat assignment timeline visualization:
+Seat assignment timeline visualization with responsive design:
 
+**Desktop (horizontal timeline):**
+- Cards displayed horizontally with arrows between them
+- Each card shows: station, time (Dep/Arr), carriage/seat, segment count and percentage
+- Shows "No seat available" (muted text) when no seat assigned
+- Segments grouped by consecutive seat changes
+
+**Mobile (vertical cards):**
+- Vertical stack of cards, one per seat change
+- Right side: segment count (top) + percentage (below)
+- Bottom: carriage/seat or "No seat available" (muted)
+- No progress bar (removed for cleaner UI)
 - **REQUIRES `assignments` prop** to calculate segment counts correctly
-- Groups consecutive segments by seat
-- Displays "Carriage X, Seat Y" format (using `parseSeat()`)
-- Shows departure/arrival times per station
-- Calculates percentage from `assignments.filter(a => a.assignedSeat === seatString).length`
+
+### `components/blocked-seats-section.tsx`
+
+Collapsible section for temporarily blocked seats that will become available:
+
+**Card layout (`w-68` = 272px, 3 cards per row on desktop):**
+- **Header (split left/right):**
+  - Left: Carriage number + Seat number (separate lines)
+  - Right: "Available at" label + Time (large) + Date (below)
+- **Middle:** Class badge (1st/2nd) + Position badge (aisle/middle/window)
+- **Bottom:** Journey span (stations + times) + Reason for block
+
+**Features:**
+- Shows both CLASS_1 and CLASS_2 seats (unlike seat chain which is CLASS_2 only)
+- Sorted by: validTo date → carriage number → seat number
+- Merges duplicate seats across segments
+- Excludes permanent blocks (EMPLOYEE without validTo)
+- Collapsed by default, expandable on click
 
 ### `components/train-carrier-icon.tsx`
 
@@ -387,17 +443,6 @@ HAR file drag & drop upload:
 - Accepts `.har` and `application/json` files
 - Shows file name and size after selection
 - Disabled state during processing
-
-### `components/blocked-seats-section.tsx`
-
-Collapsible section for temporarily blocked seats that will become available:
-
-- Shows seats blocked with `validTo` timestamp (permanent blocks like EMPLOYEE are excluded)
-- Displays seat number, carriage, class (1st/2nd), position (aisle/middle/window)
-- Shows reason for block (e.g., "Politician") and when seat becomes available
-- Displays journey span (first station → last station) for seats blocked across multiple segments
-- Sorted by: validTo date (earliest first) → carriage number → seat number
-- Merges duplicate seats across segments to show each seat only once
 
 ## Key Files
 
