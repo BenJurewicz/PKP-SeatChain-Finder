@@ -1,7 +1,7 @@
 import { buildSegmentsOutput } from "@/lib/bilkom";
 import { parseHarRequestConfig } from "@/lib/har";
 import { buildTravelerViews } from "@/lib/instructions";
-import { generateStaticReportHtml } from "@/lib/report";
+import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
 import { buildSeatChainOutput } from "@/lib/seat-chain";
 
 export const runtime = "nodejs";
@@ -33,13 +33,45 @@ export async function POST(request: Request): Promise<Response> {
     const segmentsOutput = await buildSegmentsOutput(config);
     const seatChain = buildSeatChainOutput(segmentsOutput, travelers);
     const travelerViews = buildTravelerViews(seatChain);
-    const reportHtml = generateStaticReportHtml(seatChain, travelerViews);
+
+    // Extract trip summary from segments
+    const firstSegment = segmentsOutput.segments[0];
+    const lastSegment = segmentsOutput.segments[segmentsOutput.segments.length - 1];
+    
+    const tripSummary: TripSummary = {
+      trainName: "Unknown Train",
+      trainNumber: "",
+      carrierId: "",
+      departureStation: firstSegment.stationFromName ?? String(firstSegment.request.stationFrom ?? ""),
+      arrivalStation: lastSegment.stationToName ?? String(lastSegment.request.stationTo ?? ""),
+      departureTime: firstSegment.departureTime ?? "",
+      arrivalTime: lastSegment.arrivalTime ?? "",
+      duration: 0,
+    };
+
+    // Try to calculate duration if times are available
+    if (firstSegment.departureTime && lastSegment.arrivalTime) {
+      const departureDate = new Date(firstSegment.departureTime);
+      const arrivalDate = new Date(lastSegment.arrivalTime);
+      tripSummary.duration = Math.round((arrivalDate.getTime() - departureDate.getTime()) / 1000);
+    }
+
+    const reportHtml = generateStaticReportHtml(seatChain, travelerViews, tripSummary);
 
     return Response.json({
       seatChain,
       travelerViews,
       reportHtml,
       sourceHarName: harFile.name,
+      tripInfo: {
+        trainName: tripSummary.trainName,
+        carrierId: tripSummary.carrierId,
+        departureStation: tripSummary.departureStation,
+        arrivalStation: tripSummary.arrivalStation,
+        departureTime: tripSummary.departureTime,
+        arrivalTime: tripSummary.arrivalTime,
+        duration: tripSummary.duration,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

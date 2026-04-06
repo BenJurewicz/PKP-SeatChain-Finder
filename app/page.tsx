@@ -4,6 +4,7 @@ import React, { FormEvent, useMemo, useState } from "react";
 import type { TravelerView } from "@/lib/instructions";
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
 import type { Station, Trip } from "@/lib/types";
+import type { TripSummary } from "@/lib/report";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,14 +25,51 @@ import { DateTimeInput } from "@/components/date-time-input";
 import { TripList } from "@/components/trip-list";
 import { CoverageProgress } from "@/components/coverage-progress";
 import { SeatTimeline } from "@/components/seat-timeline";
+import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
+
+function formatTime(isoString: string | undefined): string {
+  if (!isoString) return "—";
+  const date = new Date(isoString);
+  return date.toLocaleTimeString("pl-PL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Warsaw",
+  });
+}
+
+function formatDate(isoString: string | undefined): string {
+  if (!isoString) return "—";
+  const date = new Date(isoString);
+  return date.toLocaleDateString("pl-PL", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
 
 type RunResponse = {
   seatChain: SeatChainOutput;
   travelerViews: TravelerView[];
   reportHtml: string;
   sourceHarName: string;
+  tripInfo?: {
+    trainName: string;
+    carrierId: string;
+    departureStation: string;
+    arrivalStation: string;
+    departureTime: string;
+    arrivalTime: string;
+    duration: number;
+  };
 };
 
 function downloadReportHtml(html: string): void {
@@ -140,6 +178,7 @@ export default function Home() {
         travelerViews: data.travelerViews,
         reportHtml: data.reportHtml,
         sourceHarName: data.sourceHarName,
+        tripInfo: data.tripInfo,
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unknown error");
@@ -213,13 +252,33 @@ export default function Home() {
 
       const seatChain = buildSeatChainOutput(segmentsData, travelers);
       const travelerViews = buildTravelerViews(seatChain);
-      const reportHtml = generateStaticReportHtml(seatChain, travelerViews);
+      
+      const tripSummary: TripSummary = {
+        trainName: trip.trainName,
+        trainNumber: trip.trainNumber,
+        carrierId: trip.carrierId,
+        departureStation: trip.departure.stationName,
+        arrivalStation: trip.arrival.stationName,
+        departureTime: trip.departure.dateTime,
+        arrivalTime: trip.arrival.dateTime,
+        duration: trip.duration,
+      };
+      const reportHtml = generateStaticReportHtml(seatChain, travelerViews, tripSummary);
 
       setResult({
         seatChain,
         travelerViews,
         reportHtml,
         sourceHarName: `${trip.trainName} (${trip.departure.stationName} → ${trip.arrival.stationName})`,
+        tripInfo: {
+          trainName: trip.trainName,
+          carrierId: trip.carrierId,
+          departureStation: trip.departure.stationName,
+          arrivalStation: trip.arrival.stationName,
+          departureTime: trip.departure.dateTime,
+          arrivalTime: trip.arrival.dateTime,
+          duration: trip.duration,
+        },
       });
       setSearchStep("results");
     } catch (buildError) {
@@ -481,24 +540,61 @@ export default function Home() {
         <>
           <Card>
             <CardContent className="py-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="font-semibold">Results ready</span>
-                  <span className="text-sm text-muted-foreground">— {result.sourceHarName}</span>
-                </div>
-                <div className="flex gap-2">
-                  {mode === "search" && searchStep === "results" && (
-                    <Button variant="outline" size="sm" onClick={resetSearch}>
-                      New Search
-                    </Button>
+              <div className="flex items-start justify-between flex-wrap gap-4">
+                <div className="flex items-start gap-3">
+                  {result.tripInfo ? (
+                    <TrainCarrierIcon carrierId={result.tripInfo.carrierId} className="h-8 w-auto" />
+                  ) : (
+                    <Train className="h-8 w-8 text-muted-foreground" />
                   )}
-                  <Button variant="outline" size="sm" onClick={() => downloadReportHtml(result.reportHtml)}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Report
-                  </Button>
+                  <div>
+                    <div className="font-bold text-lg">
+                      {result.tripInfo?.trainName ?? "Unknown Train"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {result.tripInfo?.departureStation ?? "Unknown"} → {result.tripInfo?.arrivalStation ?? "Unknown"}
+                    </div>
+                    {result.tripInfo && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatDuration(result.tripInfo.duration)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-6">
+                  {result.tripInfo && (
+                    <>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold">{formatTime(result.tripInfo.departureTime)}</div>
+                        <div className="text-xs text-muted-foreground">{formatDate(result.tripInfo.departureTime)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold">{formatTime(result.tripInfo.arrivalTime)}</div>
+                        <div className="text-xs text-muted-foreground">{formatDate(result.tripInfo.arrivalTime)}</div>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-2">
+                    {mode === "search" && searchStep === "results" && (
+                      <Button variant="outline" size="sm" onClick={resetSearch}>
+                        New Search
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => downloadReportHtml(result.reportHtml)}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Download
+                    </Button>
+                  </div>
                 </div>
               </div>
+              {!result.tripInfo && (
+                <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span>Results ready</span>
+                  <span>—</span>
+                  <span>{result.sourceHarName}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -556,6 +652,7 @@ export default function Home() {
                 key={traveler.travelerIndex}
                 travelerIndex={traveler.travelerIndex}
                 changeSteps={traveler.changeSteps}
+                totalSegments={traveler.assignments.length}
               />
             ))}
           </div>
@@ -577,9 +674,10 @@ export default function Home() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead rowSpan={2}>Segment</TableHead>
+                          <TableHead rowSpan={2}>Seg</TableHead>
                           <TableHead rowSpan={2}>From</TableHead>
                           <TableHead rowSpan={2}>To</TableHead>
+                          <TableHead rowSpan={2}>Time</TableHead>
                           {result.seatChain.travelerChains.map((tc) => (
                             <TableHead key={tc.travelerIndex} colSpan={2} className="text-center">
                               Traveler {tc.travelerIndex}
@@ -604,6 +702,7 @@ export default function Home() {
                               <TableCell>{seg.segmentIndex}</TableCell>
                               <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
                               <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
+                              <TableCell className="text-xs">{formatTime(seg.departureTime)}</TableCell>
                               {parsedSeats.map((parsed, idx) => (
                                 <React.Fragment key={idx}>
                                   <TableCell>{parsed.carriage ?? "—"}</TableCell>
@@ -632,9 +731,10 @@ export default function Home() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Segment</TableHead>
+                          <TableHead>Seg</TableHead>
                           <TableHead>From</TableHead>
                           <TableHead>To</TableHead>
+                          <TableHead>Time</TableHead>
                           <TableHead>Carriage</TableHead>
                           <TableHead>Seat</TableHead>
                         </TableRow>
@@ -647,6 +747,7 @@ export default function Home() {
                               <TableCell>{seg.segmentIndex}</TableCell>
                               <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
                               <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
+                              <TableCell className="text-xs">{formatTime(seg.departureTime)}</TableCell>
                               <TableCell>{parsed.carriage ?? "—"}</TableCell>
                               <TableCell>{parsed.seat ?? "—"}</TableCell>
                             </TableRow>

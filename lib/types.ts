@@ -20,6 +20,8 @@ export interface SegmentOutputItem {
   segmentIndex: number;
   stationFromName?: string;
   stationToName?: string;
+  departureTime?: string;
+  arrivalTime?: string;
   request: JsonObject;
   response: JsonObject;
 }

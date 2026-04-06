@@ -6,6 +6,8 @@ export interface NormalizedSegment {
   stationTo: number;
   stationFromName?: string;
   stationToName?: string;
+  departureTime?: string;
+  arrivalTime?: string;
   carriages: unknown[];
 }
 
@@ -15,6 +17,8 @@ export interface PerSegmentAssignment {
   stationTo: number;
   stationFromName?: string;
   stationToName?: string;
+  departureTime?: string;
+  arrivalTime?: string;
   assignedSeat: string | null;
   hasSeat: boolean;
   availableClass2SeatCount: number;
@@ -28,6 +32,7 @@ export interface IntervalAssignment {
   toStation: number;
   fromStationName?: string;
   toStationName?: string;
+  arrivalTime?: string;
 }
 
 export interface SingleChainOutput {
@@ -62,6 +67,8 @@ export interface MultiChainOutput {
     stationTo: number;
     stationFromName?: string;
     stationToName?: string;
+    departureTime?: string;
+    arrivalTime?: string;
     assignedSeats: Array<string | null>;
     collisionFree: boolean;
   }>;
@@ -113,6 +120,8 @@ function normalizeSegments(data: SegmentsOutput): { segments: NormalizedSegment[
       stationTo,
       stationFromName,
       stationToName,
+      departureTime: item.departureTime,
+      arrivalTime: item.arrivalTime,
       carriages,
     });
   }
@@ -215,6 +224,7 @@ function buildIntervals(
     toStation: segments[0].stationTo,
     fromStationName: segments[0].stationFromName,
     toStationName: segments[0].stationToName,
+    arrivalTime: segments[0].departureTime,
   };
 
   for (let i = 1; i < segments.length; i += 1) {
@@ -233,6 +243,7 @@ function buildIntervals(
       toStation: segments[i].stationTo,
       fromStationName: segments[i].stationFromName,
       toStationName: segments[i].stationToName,
+      arrivalTime: segments[i].departureTime,
     };
   }
   intervals.push(current);
@@ -250,6 +261,8 @@ function buildSingleChainOutput(
     stationTo: segment.stationTo,
     stationFromName: segment.stationFromName,
     stationToName: segment.stationToName,
+    departureTime: segment.departureTime,
+    arrivalTime: segment.arrivalTime,
     assignedSeat: chain[i] ?? null,
     hasSeat: chain[i] != null,
     availableClass2SeatCount: availablePerSegment[i].size,
@@ -329,6 +342,8 @@ export function buildSeatChainOutput(data: SegmentsOutput, travelers: number): S
       stationTo: segments[i].stationTo,
       stationFromName: segments[i].stationFromName,
       stationToName: segments[i].stationToName,
+      departureTime: segments[i].departureTime,
+      arrivalTime: segments[i].arrivalTime,
       assignedSeats,
       collisionFree: new Set(nonNullSeats).size === nonNullSeats.length,
     });

@@ -104,6 +104,8 @@ export async function buildSegmentsOutput(config: HarRequestConfig): Promise<Seg
       segmentIndex: i + 1,
       stationFromName: stationNames.get(stationFrom),
       stationToName: stationNames.get(stationTo),
+      departureTime: segmentPayload.departureDate as string | undefined,
+      arrivalTime: segmentPayload.arrivalDate as string | undefined,
       request: segmentPayload,
       response: segmentResponse,
     });

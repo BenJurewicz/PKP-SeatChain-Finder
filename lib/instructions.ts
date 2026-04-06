@@ -9,6 +9,7 @@ export interface InstructionStep {
   type: "start" | "change" | "resume" | "gap";
   station: string;
   seat: string | null;
+  arrivalTime?: string;
 }
 
 export interface TravelerView {
@@ -36,6 +37,7 @@ function buildChangeSteps(assignments: PerSegmentAssignment[]): InstructionStep[
     type: "start",
     station: stationLabel(assignments[0], "stationFrom"),
     seat: currentSeat,
+    arrivalTime: assignments[0].departureTime,
   });
 
   for (let i = 1; i < assignments.length; i += 1) {
@@ -53,6 +55,7 @@ function buildChangeSteps(assignments: PerSegmentAssignment[]): InstructionStep[
       type,
       station: stationLabel(assignments[i], "stationFrom"),
       seat,
+      arrivalTime: assignments[i].departureTime,
     });
     currentSeat = seat;
   }

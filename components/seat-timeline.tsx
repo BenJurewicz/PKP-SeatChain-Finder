@@ -1,9 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { parseSeat } from "@/lib/utils";
 import type { InstructionStep } from "@/lib/instructions";
-import { MapPin, AlertTriangle } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 interface SeatChangeStep {
   station: string;
@@ -12,11 +11,23 @@ interface SeatChangeStep {
   type: "start" | "change" | "resume" | "gap";
   segmentStart: number;
   segmentEnd: number;
+  arrivalTime?: string;
 }
 
 interface SeatTimelineProps {
   travelerIndex: number;
   changeSteps: InstructionStep[];
+  totalSegments: number;
+}
+
+function formatTime(isoString: string | undefined): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  return date.toLocaleTimeString("pl-PL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Warsaw",
+  });
 }
 
 function groupConsecutiveSteps(steps: InstructionStep[]): SeatChangeStep[] {
@@ -34,6 +45,7 @@ function groupConsecutiveSteps(steps: InstructionStep[]): SeatChangeStep[] {
         type: step.type,
         segmentStart: idx + 1,
         segmentEnd: idx + 1,
+        arrivalTime: step.arrivalTime,
       };
     } else if (
       currentGroup.carriage === parsed.carriage &&
@@ -49,6 +61,7 @@ function groupConsecutiveSteps(steps: InstructionStep[]): SeatChangeStep[] {
         type: step.type,
         segmentStart: idx + 1,
         segmentEnd: idx + 1,
+        arrivalTime: step.arrivalTime,
       };
     }
   });
@@ -60,9 +73,8 @@ function groupConsecutiveSteps(steps: InstructionStep[]): SeatChangeStep[] {
   return groups;
 }
 
-export function SeatTimeline({ travelerIndex, changeSteps }: SeatTimelineProps) {
+export function SeatTimeline({ travelerIndex, changeSteps, totalSegments }: SeatTimelineProps) {
   const groups = groupConsecutiveSteps(changeSteps);
-  const totalSegments = changeSteps.length;
 
   return (
     <div className="rounded-lg border bg-card">
@@ -74,27 +86,25 @@ export function SeatTimeline({ travelerIndex, changeSteps }: SeatTimelineProps) 
       <div className="hidden md:block overflow-x-auto p-4">
         <div className="flex items-stretch gap-0 min-w-max">
           {groups.map((group, idx) => {
-            const isChange = idx > 0;
             const segmentCount = group.segmentEnd - group.segmentStart + 1;
             const percentage = Math.round((segmentCount / totalSegments) * 100);
+            const timeStr = formatTime(group.arrivalTime);
+            const isFirst = idx === 0;
 
             return (
               <div key={idx} className="flex items-stretch">
-                {isChange && (
-                  <div className="flex flex-col items-center justify-center px-2">
-                    <div className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-amber-700 border border-amber-200">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">Change</span>
-                    </div>
-                  </div>
-                )}
                 <div className="flex flex-col rounded-lg border p-3 min-w-[140px] bg-card">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
                     <MapPin className="h-3 w-3" />
                     <span className="truncate">{group.station}</span>
                   </div>
-                  <div className="text-base font-semibold">
-                    {group.carriage ?? "—"} / {group.seat ?? "—"}
+                  {timeStr && (
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {isFirst ? "Dep:" : "Arr:"} {timeStr}
+                    </div>
+                  )}
+                  <div className="text-sm">
+                    <span className="font-medium">Carriage</span> {group.carriage ?? "—"}, <span className="font-medium">Seat</span> {group.seat ?? "—"}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     {segmentCount} {segmentCount === 1 ? "segment" : "segments"} ({percentage}%)
@@ -116,31 +126,31 @@ export function SeatTimeline({ travelerIndex, changeSteps }: SeatTimelineProps) 
       {/* Mobile: Vertical cards */}
       <div className="md:hidden divide-y">
         {groups.map((group, idx) => {
-          const isChange = idx > 0;
           const segmentCount = group.segmentEnd - group.segmentStart + 1;
           const percentage = Math.round((segmentCount / totalSegments) * 100);
+          const timeStr = formatTime(group.arrivalTime);
+          const isFirst = idx === 0;
 
           return (
             <div key={idx} className="p-4 space-y-2">
-              {isChange && (
-                <div className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-amber-700 border border-amber-200 w-fit">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  <span className="text-xs font-medium">Change at this station</span>
-                </div>
-              )}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  <span className="font-medium">{group.station}</span>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span className="font-medium">{group.station}</span>
+                  </div>
+                  {timeStr && (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {isFirst ? "Dep:" : "Arr:"} {timeStr}
+                    </div>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {segmentCount} {segmentCount === 1 ? "segment" : "segments"}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-lg font-semibold">
-                  Carriage {group.carriage ?? "—"}, Seat {group.seat ?? "—"}
-                </div>
+              <div className="text-sm">
+                <span className="font-medium">Carriage</span> {group.carriage ?? "—"}, <span className="font-medium">Seat</span> {group.seat ?? "—"}
               </div>
               <div className="h-1.5 w-full rounded-full bg-gray-100">
                 <div
