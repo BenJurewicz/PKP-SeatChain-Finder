@@ -6,7 +6,6 @@ import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
 import type { Station, Trip, BlockedSeat } from "@/lib/types";
 import type { TripSummary } from "@/lib/report";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +26,7 @@ import { CoverageProgress } from "@/components/coverage-progress";
 import { SeatTimeline } from "@/components/seat-timeline";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import { BlockedSeatsSection } from "@/components/blocked-seats-section";
+import { NumberStepper } from "@/components/number-stepper";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
@@ -183,9 +183,9 @@ export default function Home() {
                 sourceHarName: data.sourceHarName,
                 tripInfo: data.tripInfo,
             });
-} catch (submitError) {
-      setError(getFriendlyErrorMessage(submitError));
-    } finally {
+        } catch (submitError) {
+            setError(getFriendlyErrorMessage(submitError));
+        } finally {
             setLoading(false);
         }
     }
@@ -223,9 +223,9 @@ export default function Home() {
             }
             setTrips(data.trips || []);
             setSearchStep("trips");
-} catch (searchError) {
-      setError(getFriendlyErrorMessage(searchError));
-    } finally {
+        } catch (searchError) {
+            setError(getFriendlyErrorMessage(searchError));
+        } finally {
             setLoading(false);
         }
     }
@@ -287,9 +287,9 @@ export default function Home() {
                 },
             });
             setSearchStep("results");
-} catch (buildError) {
-      setError(getFriendlyErrorMessage(buildError));
-    } finally {
+        } catch (buildError) {
+            setError(getFriendlyErrorMessage(buildError));
+        } finally {
             setLoading(false);
         }
     }
@@ -623,57 +623,39 @@ export default function Home() {
                         </Alert>
                     )}
 
-                    <Card>
-                        <CardContent className="py-4">
-                            <div className="flex items-center gap-4 flex-wrap">
-                                <div className="flex items-center gap-2">
-                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                    <label htmlFor="travelers-result" className="text-sm font-medium">
-                                        Travelers
-                                    </label>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="travelers-result"
-                                        type="number"
-                                        min={1}
-                                        max={20}
-                                        value={travelers}
-                                        onChange={(event) => setTravelers(Number(event.target.value))}
-                                        disabled={loading}
-                                        className="w-20"
-                                    />
-                                    {selectedTrip && (
-                                        <Button
-                                            size="sm"
-                                            onClick={() => handleSelectTrip(selectedTrip)}
-                                            disabled={loading}
-                                        >
-                                            {loading ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Recalculating...
-                                                </>
-                                            ) : (
-                                                "Recalculate"
-                                            )}
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                         <Card>
                             <CardContent className="py-4">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-2">
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-sm text-muted-foreground">Travelers</span>
                                 </div>
-                                <div className="text-3xl font-bold">
-                                    {isMultiChainOutput(result.seatChain) ? result.seatChain.summary.travelers : travelers}
+                                <div className="flex justify-center">
+                                    <NumberStepper
+                                        value={isMultiChainOutput(result.seatChain) ? result.seatChain.summary.travelers : travelers}
+                                        onChange={setTravelers}
+                                        min={1}
+                                        max={20}
+                                        disabled={loading || isMultiChainOutput(result.seatChain)}
+                                    />
                                 </div>
+                                {selectedTrip && !isMultiChainOutput(result.seatChain) && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleSelectTrip(selectedTrip)}
+                                        disabled={loading}
+                                        className="mt-2 w-full"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Recalculating...
+                                            </>
+                                        ) : (
+                                            "Recalculate"
+                                        )}
+                                    </Button>
+                                )}
                             </CardContent>
                         </Card>
 
