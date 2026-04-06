@@ -73,29 +73,32 @@ function getCarrierColor(carrierId: string): string {
 }
 
 function groupConsecutiveSteps(
-  steps: TravelerView["changeSteps"]
+  steps: TravelerView["changeSteps"],
+  assignments: TravelerView["assignments"]
 ): Array<{
   station: string;
   carriage: string | null;
   seat: string | null;
   type: string;
-  startIdx: number;
-  endIdx: number;
   time?: string;
+  segmentCount: number;
 }> {
   const groups: Array<{
     station: string;
     carriage: string | null;
     seat: string | null;
     type: string;
-    startIdx: number;
-    endIdx: number;
     time?: string;
+    segmentCount: number;
   }> = [];
 
-  let currentGroup: (typeof groups)[0] | null = null;
+  if (steps.length === 0) return groups;
 
-  steps.forEach((step, idx) => {
+  let currentGroup: (typeof groups)[0] | null = null;
+  let currentSeatString: string | null = null;
+
+  for (const step of steps) {
+    const seatString = step.seat;
     const parsed = step.seat ? parseSeat(step.seat) : { carriage: null, seat: null };
 
     if (!currentGroup) {
@@ -104,30 +107,37 @@ function groupConsecutiveSteps(
         carriage: parsed.carriage,
         seat: parsed.seat,
         type: step.type,
-        startIdx: idx,
-        endIdx: idx,
         time: step.arrivalTime,
+        segmentCount: 0,
       };
-    } else if (
-      currentGroup.carriage === parsed.carriage &&
-      currentGroup.seat === parsed.seat
-    ) {
-      currentGroup.endIdx = idx;
+      currentSeatString = seatString;
+    } else if (seatString === currentSeatString) {
+      // Same seat as current group, continue
     } else {
+      // Different seat, finalize current group
+      currentGroup.segmentCount = assignments.filter(
+        (a) => a.assignedSeat === currentSeatString
+      ).length;
       groups.push(currentGroup);
+
+      // Start new group
       currentGroup = {
         station: step.station,
         carriage: parsed.carriage,
         seat: parsed.seat,
         type: step.type,
-        startIdx: idx,
-        endIdx: idx,
         time: step.arrivalTime,
+        segmentCount: 0,
       };
+      currentSeatString = seatString;
     }
-  });
+  }
 
+  // Push final group
   if (currentGroup) {
+    currentGroup.segmentCount = assignments.filter(
+      (a) => a.assignedSeat === currentSeatString
+    ).length;
     groups.push(currentGroup);
   }
 
@@ -140,10 +150,10 @@ function renderTimeline(
 ): string {
   return travelerViews
     .map((traveler) => {
-      const groups = groupConsecutiveSteps(traveler.changeSteps);
+      const groups = groupConsecutiveSteps(traveler.changeSteps, traveler.assignments);
       const cards = groups
         .map((group, idx) => {
-          const segmentCount = group.endIdx - group.startIdx + 1;
+          const segmentCount = group.segmentCount;
           const percentage = Math.round((segmentCount / totalSegments) * 100);
           const timeStr = formatTime(group.time);
           const isFirst = idx === 0;

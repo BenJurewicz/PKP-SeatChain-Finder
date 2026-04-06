@@ -337,6 +337,54 @@ export default function Home() {
         <CardContent>
           {mode === "har" ? (
             <form className="grid gap-4" onSubmit={handleHarSubmit}>
+              <details className="group">
+                <summary className="cursor-pointer p-4 bg-muted rounded-lg font-medium flex items-center justify-between list-none marker:content-['']">
+                  <span>📋 How to get the HAR file</span>
+                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm">
+                  <ol className="list-decimal list-inside space-y-2">
+                    <li>
+                      Go to{" "}
+                      <a href="https://bilkom.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                        bilkom.pl
+                      </a>
+                    </li>
+                    <li>Find and select your desired train</li>
+                    <li className="text-amber-600 flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4" />
+                      Only direct connections are supported
+                    </li>
+                    <li>
+                      Click{" "}
+                      <span className="font-semibold text-primary">Buy Ticket</span> to proceed
+                    </li>
+                    <li>
+                      Open browser{" "}
+                      <span className="font-semibold text-primary">Dev Tools</span>{" "}
+                      (<kbd className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">F12</kbd>) →{" "}
+                      <span className="font-semibold text-primary">Network</span> tab
+                    </li>
+                    <li>Scroll to bottom, select "I choose a seat from a schematic"</li>
+                    <li>
+                      Click the{" "}
+                      <span className="font-semibold text-primary">Class 2</span> button
+                    </li>
+                    <li>
+                      In <span className="font-semibold text-primary">Network</span> tab, find request named{" "}
+                      <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs">grm</span>{" "}
+                      (type: JSON)
+                    </li>
+                    <li>
+                      Right-click → "Save all as HAR"
+                    </li>
+                    <li>
+                      Upload the saved{" "}
+                      <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">.har</code> file here
+                    </li>
+                  </ol>
+                </div>
+              </details>
               <FileUpload
                 onChange={setHarFile}
                 accept=".har,application/json"
@@ -653,6 +701,7 @@ export default function Home() {
                 travelerIndex={traveler.travelerIndex}
                 changeSteps={traveler.changeSteps}
                 totalSegments={traveler.assignments.length}
+                assignments={traveler.assignments}
               />
             ))}
           </div>

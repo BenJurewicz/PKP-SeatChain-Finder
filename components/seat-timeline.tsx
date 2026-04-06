@@ -2,6 +2,7 @@
 
 import { parseSeat } from "@/lib/utils";
 import type { InstructionStep } from "@/lib/instructions";
+import type { PerSegmentAssignment } from "@/lib/seat-chain";
 import { MapPin } from "lucide-react";
 
 interface SeatChangeStep {
@@ -9,15 +10,15 @@ interface SeatChangeStep {
   carriage: string | null;
   seat: string | null;
   type: "start" | "change" | "resume" | "gap";
-  segmentStart: number;
-  segmentEnd: number;
   arrivalTime?: string;
+  segmentCount: number;
 }
 
 interface SeatTimelineProps {
   travelerIndex: number;
   changeSteps: InstructionStep[];
   totalSegments: number;
+  assignments: PerSegmentAssignment[];
 }
 
 function formatTime(isoString: string | undefined): string {
@@ -30,11 +31,18 @@ function formatTime(isoString: string | undefined): string {
   });
 }
 
-function groupConsecutiveSteps(steps: InstructionStep[]): SeatChangeStep[] {
+function groupConsecutiveSteps(
+  steps: InstructionStep[],
+  assignments: PerSegmentAssignment[]
+): SeatChangeStep[] {
+  if (steps.length === 0) return [];
+
   const groups: SeatChangeStep[] = [];
   let currentGroup: SeatChangeStep | null = null;
+  let currentSeatString: string | null = null;
 
-  steps.forEach((step, idx) => {
+  for (const step of steps) {
+    const seatString = step.seat;
     const parsed = step.seat ? parseSeat(step.seat) : { carriage: null, seat: null };
 
     if (!currentGroup) {
@@ -43,38 +51,51 @@ function groupConsecutiveSteps(steps: InstructionStep[]): SeatChangeStep[] {
         carriage: parsed.carriage,
         seat: parsed.seat,
         type: step.type,
-        segmentStart: idx + 1,
-        segmentEnd: idx + 1,
         arrivalTime: step.arrivalTime,
+        segmentCount: 0,
       };
-    } else if (
-      currentGroup.carriage === parsed.carriage &&
-      currentGroup.seat === parsed.seat
-    ) {
-      currentGroup.segmentEnd = idx + 1;
+      currentSeatString = seatString;
+    } else if (seatString === currentSeatString) {
+      // Same seat as current group, continue (this shouldn't happen in changeSteps
+      // since each step is a change point, but handle it gracefully)
     } else {
+      // Different seat, finalize current group
+      currentGroup.segmentCount = assignments.filter(
+        (a) => a.assignedSeat === currentSeatString
+      ).length;
       groups.push(currentGroup);
+
+      // Start new group
       currentGroup = {
         station: step.station,
         carriage: parsed.carriage,
         seat: parsed.seat,
         type: step.type,
-        segmentStart: idx + 1,
-        segmentEnd: idx + 1,
         arrivalTime: step.arrivalTime,
+        segmentCount: 0,
       };
+      currentSeatString = seatString;
     }
-  });
+  }
 
+  // Push final group
   if (currentGroup) {
+    currentGroup.segmentCount = assignments.filter(
+      (a) => a.assignedSeat === currentSeatString
+    ).length;
     groups.push(currentGroup);
   }
 
   return groups;
 }
 
-export function SeatTimeline({ travelerIndex, changeSteps, totalSegments }: SeatTimelineProps) {
-  const groups = groupConsecutiveSteps(changeSteps);
+export function SeatTimeline({
+  travelerIndex,
+  changeSteps,
+  totalSegments,
+  assignments,
+}: SeatTimelineProps) {
+  const groups = groupConsecutiveSteps(changeSteps, assignments);
 
   return (
     <div className="rounded-lg border bg-card">
@@ -86,7 +107,7 @@ export function SeatTimeline({ travelerIndex, changeSteps, totalSegments }: Seat
       <div className="hidden md:block overflow-x-auto p-4">
         <div className="flex items-stretch gap-0 min-w-max">
           {groups.map((group, idx) => {
-            const segmentCount = group.segmentEnd - group.segmentStart + 1;
+            const segmentCount = group.segmentCount;
             const percentage = Math.round((segmentCount / totalSegments) * 100);
             const timeStr = formatTime(group.arrivalTime);
             const isFirst = idx === 0;
@@ -104,16 +125,29 @@ export function SeatTimeline({ travelerIndex, changeSteps, totalSegments }: Seat
                     </div>
                   )}
                   <div className="text-sm">
-                    <span className="font-medium">Carriage</span> {group.carriage ?? "—"}, <span className="font-medium">Seat</span> {group.seat ?? "—"}
+                    <span className="font-medium">Carriage</span>{" "}
+                    {group.carriage ?? "—"}, <span className="font-medium">Seat</span>{" "}
+                    {group.seat ?? "—"}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    {segmentCount} {segmentCount === 1 ? "segment" : "segments"} ({percentage}%)
+                    {segmentCount} {segmentCount === 1 ? "segment" : "segments"} ({percentage}
+                    %)
                   </div>
                 </div>
                 {idx < groups.length - 1 && (
                   <div className="flex items-center px-1">
-                    <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12H19M19 12L12 5M19 12L12 19" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg
+                      className="h-4 w-4 text-muted-foreground"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        d="M5 12H19M19 12L12 5M19 12L12 19"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </div>
                 )}
@@ -126,7 +160,7 @@ export function SeatTimeline({ travelerIndex, changeSteps, totalSegments }: Seat
       {/* Mobile: Vertical cards */}
       <div className="md:hidden divide-y">
         {groups.map((group, idx) => {
-          const segmentCount = group.segmentEnd - group.segmentStart + 1;
+          const segmentCount = group.segmentCount;
           const percentage = Math.round((segmentCount / totalSegments) * 100);
           const timeStr = formatTime(group.arrivalTime);
           const isFirst = idx === 0;
@@ -150,7 +184,9 @@ export function SeatTimeline({ travelerIndex, changeSteps, totalSegments }: Seat
                 </div>
               </div>
               <div className="text-sm">
-                <span className="font-medium">Carriage</span> {group.carriage ?? "—"}, <span className="font-medium">Seat</span> {group.seat ?? "—"}
+                <span className="font-medium">Carriage</span>{" "}
+                {group.carriage ?? "—"}, <span className="font-medium">Seat</span>{" "}
+                {group.seat ?? "—"}
               </div>
               <div className="h-1.5 w-full rounded-full bg-gray-100">
                 <div
