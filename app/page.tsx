@@ -29,6 +29,7 @@ import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import { BlockedSeatsSection } from "@/components/blocked-seats-section";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
+import { getFriendlyErrorMessage } from "@/lib/error-messages";
 
 function formatTime(isoString: string | undefined): string {
     if (!isoString) return "—";
@@ -182,9 +183,9 @@ export default function Home() {
                 sourceHarName: data.sourceHarName,
                 tripInfo: data.tripInfo,
             });
-        } catch (submitError) {
-            setError(submitError instanceof Error ? submitError.message : "Unknown error");
-        } finally {
+} catch (submitError) {
+      setError(getFriendlyErrorMessage(submitError));
+    } finally {
             setLoading(false);
         }
     }
@@ -222,9 +223,9 @@ export default function Home() {
             }
             setTrips(data.trips || []);
             setSearchStep("trips");
-        } catch (searchError) {
-            setError(searchError instanceof Error ? searchError.message : "Unknown error");
-        } finally {
+} catch (searchError) {
+      setError(getFriendlyErrorMessage(searchError));
+    } finally {
             setLoading(false);
         }
     }
@@ -286,35 +287,35 @@ export default function Home() {
                 },
             });
             setSearchStep("results");
-        } catch (buildError) {
-            setError(buildError instanceof Error ? buildError.message : "Unknown error");
-        } finally {
+} catch (buildError) {
+      setError(getFriendlyErrorMessage(buildError));
+    } finally {
             setLoading(false);
         }
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 md:px-6">
-            <div className="text-center mb-2">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                    <Train className="h-8 w-8" />
-                    <h1 className="text-3xl font-bold">Seat Chain Builder</h1>
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 md:px-6">
+            <div className="text-center mb-4">
+                <div className="flex items-center justify-center gap-3 mb-3">
+                    <Train className="h-10 w-10" />
+                    <h1 className="text-4xl font-bold">Seat Chain Builder</h1>
                 </div>
-                <p className="text-muted-foreground">Find optimal seat arrangements for your train journey</p>
+                <p className="text-muted-foreground text-lg">Find optimal seat arrangements for your train journey</p>
             </div>
 
             <Card>
                 <CardHeader className="pb-3">
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 p-1 bg-muted rounded-lg">
                         <button
                             type="button"
                             onClick={() => {
                                 setMode("search");
                                 resetSearch();
                             }}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${mode === "search"
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted hover:bg-muted/80"
+                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === "search"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             <Search className="h-4 w-4" />
@@ -327,9 +328,9 @@ export default function Home() {
                                 setResult(null);
                                 setError(null);
                             }}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${mode === "har"
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted hover:bg-muted/80"
+                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === "har"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             <Upload className="h-4 w-4" />
@@ -368,7 +369,7 @@ export default function Home() {
                                             (<kbd className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">F12</kbd>) →{" "}
                                             <span className="font-semibold text-primary">Network</span> tab
                                         </li>
-                                        <li>Scroll to bottom, select "I choose a seat from a schematic"</li>
+                                        <li>Scroll to bottom, select &ldquo;I choose a seat from a schematic&rdquo;</li>
                                         <li>
                                             Click the{" "}
                                             <span className="font-semibold text-primary">Class 2</span> button
@@ -379,7 +380,7 @@ export default function Home() {
                                             (type: JSON)
                                         </li>
                                         <li>
-                                            Right-click → "Save all as HAR"
+                                            Right-click → &ldquo;Save all as HAR&rdquo;
                                         </li>
                                         <li>
                                             Upload the saved{" "}
@@ -393,34 +394,17 @@ export default function Home() {
                                 accept=".har,application/json"
                                 disabled={loading}
                             />
-                            <div className="grid gap-4 md:grid-cols-[160px_auto]">
-                                <div className="space-y-2">
-                                    <label htmlFor="travelers" className="text-sm font-medium flex items-center gap-1.5">
-                                        <Users className="h-4 w-4" />
-                                        Travelers
-                                    </label>
-                                    <Input
-                                        id="travelers"
-                                        type="number"
-                                        min={1}
-                                        max={20}
-                                        value={travelers}
-                                        onChange={(event) => setTravelers(Number(event.target.value))}
-                                        disabled={loading}
-                                    />
-                                </div>
-                                <div className="flex items-end">
-                                    <Button type="submit" disabled={loading} className="w-full md:w-auto">
-                                        {loading ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Running...
-                                            </>
-                                        ) : (
-                                            "Build seat chains"
-                                        )}
-                                    </Button>
-                                </div>
+                            <div className="flex items-end">
+                                <Button type="submit" disabled={loading} className="w-full md:w-auto">
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Running...
+                                        </>
+                                    ) : (
+                                        "Build seat chains"
+                                    )}
+                                </Button>
                             </div>
                             {error ? (
                                 <Alert variant="destructive" className="mt-4">
@@ -462,43 +446,24 @@ export default function Home() {
                                         disabled={loading}
                                     />
 
-                                    <div className="grid gap-4 md:grid-cols-[160px_auto]">
-                                        <div className="space-y-2">
-                                            <label htmlFor="travelers-search" className="text-sm font-medium flex items-center gap-1.5">
-                                                <Users className="h-4 w-4" />
-                                                Travelers
-                                            </label>
-                                            <Input
-                                                id="travelers-search"
-                                                type="number"
-                                                min={1}
-                                                max={20}
-                                                value={travelers}
-                                                onChange={(event) => setTravelers(Number(event.target.value))}
-                                                disabled={loading}
-                                            />
-                                        </div>
-                                        <div className="flex items-end">
-                                            <Button
-                                                type="button"
-                                                onClick={handleSearchTrips}
-                                                disabled={loading || !fromStation || !toStation}
-                                                className="w-full md:w-auto"
-                                            >
-                                                {loading ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Searching...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Search className="mr-2 h-4 w-4" />
-                                                        Search Trips
-                                                    </>
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
+                                    <Button
+                                        type="button"
+                                        onClick={handleSearchTrips}
+                                        disabled={loading || !fromStation || !toStation}
+                                        className="w-full md:w-auto"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Searching...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Search className="mr-2 h-4 w-4" />
+                                                Search Trips
+                                            </>
+                                        )}
+                                    </Button>
 
                                     {error ? (
                                         <Alert variant="destructive">
@@ -657,6 +622,47 @@ export default function Home() {
                             </AlertDescription>
                         </Alert>
                     )}
+
+                    <Card>
+                        <CardContent className="py-4">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <label htmlFor="travelers-result" className="text-sm font-medium">
+                                        Travelers
+                                    </label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        id="travelers-result"
+                                        type="number"
+                                        min={1}
+                                        max={20}
+                                        value={travelers}
+                                        onChange={(event) => setTravelers(Number(event.target.value))}
+                                        disabled={loading}
+                                        className="w-20"
+                                    />
+                                    {selectedTrip && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleSelectTrip(selectedTrip)}
+                                            disabled={loading}
+                                        >
+                                            {loading ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Recalculating...
+                                                </>
+                                            ) : (
+                                                "Recalculate"
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
                     <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                         <Card>

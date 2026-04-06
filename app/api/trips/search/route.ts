@@ -1,5 +1,6 @@
 import { findTrips } from "@/lib/trip-search";
 import type { Station } from "@/lib/station-search";
+import { getFriendlyErrorMessage } from "@/lib/error-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +43,6 @@ export async function POST(request: Request): Promise<Response> {
     const trips = await findTrips(body.fromStation as Station, body.toStation as Station, dateTime);
     return Response.json({ trips });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return errorResponse(message, 500);
+    return errorResponse(getFriendlyErrorMessage(error), 500);
   }
 }

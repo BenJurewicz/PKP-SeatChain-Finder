@@ -1,6 +1,7 @@
 import { buildSegmentsOutput } from "@/lib/bilkom";
 import { buildHarConfigFromSegmentRequest } from "@/lib/segment-request";
 import type { JsonObject } from "@/lib/types";
+import { getFriendlyErrorMessage } from "@/lib/error-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,7 +52,6 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json(segmentsOutput);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return errorResponse(message, 500);
+    return errorResponse(getFriendlyErrorMessage(error), 500);
   }
 }

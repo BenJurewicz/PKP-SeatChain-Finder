@@ -4,6 +4,7 @@ import { parseHarRequestConfig } from "@/lib/har";
 import { buildTravelerViews } from "@/lib/instructions";
 import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
 import { buildSeatChainOutput } from "@/lib/seat-chain";
+import { getFriendlyErrorMessage } from "@/lib/error-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +37,6 @@ export async function POST(request: Request): Promise<Response> {
     const travelerViews = buildTravelerViews(seatChain);
     const blockedSeats = extractBlockedSeats(segmentsOutput);
 
-    // Extract trip summary from segments
     const firstSegment = segmentsOutput.segments[0];
     const lastSegment = segmentsOutput.segments[segmentsOutput.segments.length - 1];
     
@@ -51,7 +51,6 @@ export async function POST(request: Request): Promise<Response> {
       duration: 0,
     };
 
-    // Try to calculate duration if times are available
     if (firstSegment.departureTime && lastSegment.arrivalTime) {
       const departureDate = new Date(firstSegment.departureTime);
       const arrivalDate = new Date(lastSegment.arrivalTime);
@@ -77,7 +76,6 @@ export async function POST(request: Request): Promise<Response> {
       blockedSeats,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return errorResponse(message, 500);
+    return errorResponse(getFriendlyErrorMessage(error), 500);
   }
 }

@@ -17,8 +17,8 @@ export const DateTimeInput = forwardRef<HTMLDivElement, DateTimeInputProps>(
     const todayStr = today.toISOString().split("T")[0];
 
     return (
-      <div ref={ref} className="flex flex-col gap-4 md:flex-row md:items-end">
-        <div className="space-y-2 flex-1">
+      <div ref={ref} className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
           <label htmlFor="date" className="text-sm font-medium">
             Date
           </label>
@@ -32,7 +32,7 @@ export const DateTimeInput = forwardRef<HTMLDivElement, DateTimeInputProps>(
             className="h-9"
           />
         </div>
-        <div className="space-y-2 flex-1">
+        <div className="space-y-2">
           <label htmlFor="time" className="text-sm font-medium">
             Time
           </label>

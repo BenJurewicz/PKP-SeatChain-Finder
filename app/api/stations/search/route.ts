@@ -1,5 +1,6 @@
 import { searchStations } from "@/lib/station-search";
 import { DEFAULT_SEARCH_HEADERS } from "@/lib/constants";
+import { getFriendlyErrorMessage } from "@/lib/error-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,6 @@ export async function GET(request: Request): Promise<Response> {
     const stations = await searchStations(query);
     return Response.json({ stations });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return errorResponse(message, 500);
+    return errorResponse(getFriendlyErrorMessage(error), 500);
   }
 }

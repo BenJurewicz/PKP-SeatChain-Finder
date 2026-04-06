@@ -11,9 +11,10 @@ interface StationInputProps {
   onChange: (station: Station | null) => void;
   placeholder?: string;
   disabled?: boolean;
+  onTopSuggestion?: (station: Station | null) => void;
 }
 
-export function StationInput({ value, onChange, placeholder, disabled }: StationInputProps) {
+export function StationInput({ value, onChange, placeholder, disabled, onTopSuggestion }: StationInputProps) {
   const [query, setQuery] = useState("");
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +91,20 @@ export function StationInput({ value, onChange, placeholder, disabled }: Station
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
+    
+    setTimeout(() => {
+      if (stations.length > 0 && !value) {
+        const topSuggestion = stations[0];
+        const matchesQuery = query.toLowerCase().trim() === topSuggestion.name.toLowerCase().trim();
+        
+        if (matchesQuery || isOpen) {
+          handleSelect(topSuggestion);
+          if (onTopSuggestion) {
+            onTopSuggestion(topSuggestion);
+          }
+        }
+      }
+    }, 150);
   };
 
   return (
