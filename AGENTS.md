@@ -176,8 +176,74 @@ The HAR tutorial in `app/page.tsx` guides users through:
 }
 ```
 
+## Error Handling
+
+### `lib/error-messages.ts`
+
+Utility functions for user-friendly error messages:
+
+- **`getFriendlyErrorMessage(error: unknown): string`** - Converts technical errors to user-friendly messages
+- Handles network errors (ENOTFOUND, ECONNREFUSED, ETIMEDOUT)
+- Converts HTTP status codes to readable messages (401, 403, 404)
+- Generic fallback for unknown errors
+- **Never exposes bilkom.pl** in error messages
+
+**Usage:**
+```typescript
+import { getFriendlyErrorMessage } from "@/lib/error-messages";
+
+try {
+  // ... API call
+} catch (error) {
+  return errorResponse(getFriendlyErrorMessage(error), 500);
+}
+```
+
 ## Project Structure
 
+```
+webapp/
+├── app/
+│   ├── layout.tsx
+│   ├── page.tsx                    # Main UI with segmented control for both flows
+│   ├── globals.css
+│   └── api/
+│       ├── run/route.ts            # HAR upload endpoint
+│       ├── stations/search/route.ts # Station autocomplete
+│       ├── trips/search/route.ts    # Trip search endpoint
+│       └── segments/build/route.ts  # Segment builder endpoint
+├── components/
+│   ├── file-upload.tsx             # Drag & drop HAR file upload
+│   ├── station-input.tsx           # Station autocomplete with live search and auto-selection
+│   ├── date-time-input.tsx         # Date/time picker with compact grid layout
+│   ├── trip-list.tsx               # Trip selection list with carrier icons
+│   ├── coverage-progress.tsx       # Journey coverage percentage bar
+│   ├── seat-timeline.tsx           # Seat assignment timeline view
+│   ├── train-carrier-icon.tsx      # Carrier logo (EIP/IC/TLK) display
+│   ├── blocked-seats-section.tsx   # Collapsible blocked seats display
+│   ├── number-stepper.tsx          # Number input with +/- buttons for traveler count
+│   └── ui/                         # shadcn/ui components
+├── lib/
+│   ├── types.ts                    # TypeScript types (Trip, Station, etc.)
+│   ├── utils.ts                    # Utilities: cn(), parseSeat()
+│   ├── constants.ts                # API URLs, headers, timeouts
+│   ├── error-messages.ts           # Error message utilities
+│   ├── http.ts                     # HTTP client (GET/POST with TLS bypass)
+│   ├── har.ts                      # HAR file parsing
+│   ├── bilkom.ts                   # Bilkom API client
+│   ├── station-search.ts           # Station autocomplete API
+│   ├── trip-search.ts              # Trip HTML parsing
+│   ├── segment-request.ts          # Build segment requests from trips
+│   ├── seat-chain.ts               # Seat chain algorithm
+│   ├── blocked-seats.ts            # Extract temporarily blocked seats
+│   ├── instructions.ts             # Build traveler instructions
+│   └── report.ts                   # Generate static HTML report
+├── public/
+│   └── icons/                      # Carrier SVG logos
+│       ├── eip.svg                 # Express InterCity Premium
+│       ├── ic.svg                  # InterCity
+│       └── tlk.svg                 # Twoje Linie Kolejowe
+└── AGENTS.md
 ```
 webapp/
 ├── app/
@@ -359,20 +425,48 @@ Cards use `w-68` (272px) fixed width to fit 3 per row on desktop:
 
 ### `components/station-input.tsx`
 
-Station autocomplete with debounced search:
+Station autocomplete with debounced search and auto-selection:
 
 - Queries `/api/stations/search` with min 2 characters
 - Shows loading spinner during search
 - Displays station name and coordinates
 - Handles click-outside to close dropdown
+- **Auto-selects top suggestion on blur** when dropdown is open or query matches exactly
+- Callback `onTopSuggestion` for parent component handling
 
 ### `components/date-time-input.tsx`
 
-Date and time picker inputs:
+Date and time picker inputs with compact layout:
 
 - Date input with `min=today` validation
 - Time input for departure time
 - Returns separate date/time strings
+- **Compact grid layout** (`grid grid-cols-2 gap-3`) for better spacing
+
+### `components/number-stepper.tsx`
+
+Number input with increment/decrement buttons:
+
+- Editable numeric input with +/- buttons
+- Uses shadcn Button components with `variant="outline" size="icon"`
+- Large font display (`text-3xl font-bold`) for readability
+- Input dimensions: `h-12 w-24` (48px × 96px)
+- Button dimensions: `h-12 w-12` (48px × 48px)
+- Supports manual typing with bounds checking (min/max)
+- Handles empty/invalid input gracefully
+- Hidden browser spinners with Tailwind classes
+- Centered layout within parent container
+- **Props:** value, onChange, min (default: 1), max (default: 20), disabled
+
+```tsx
+<NumberStepper
+  value={travelers}
+  onChange={setTravelers}
+  min={1}
+  max={20}
+  disabled={loading}
+/>
+```
 
 ### `components/trip-list.tsx`
 
@@ -444,6 +538,35 @@ HAR file drag & drop upload:
 - Shows file name and size after selection
 - Disabled state during processing
 
+## Page Layout
+
+### Main Page (`app/page.tsx`)
+
+**Container and Spacing:**
+- Container width: `max-w-5xl` (increased from max-w-4xl)
+- Gap spacing: `gap-8` (increased from gap-6)
+- Hero section with larger title (`text-4xl`, increased from text-3xl)
+- Train icon larger: `h-10 w-10` (increased from h-8 w-8)
+
+**Mode Switching:**
+- Segmented control (tab-like styling) instead of separate buttons
+- Uses `bg-muted` background with `bg-background` for active tab
+- Clean visual separation with rounded corners
+
+**Traveler Count:**
+- Moved from search/HAR forms to results stats card
+- NumberStepper component in stats grid alongside coverage and seat changes
+- Editable input with +/- buttons for adjustment
+- Recalculate button appears below when using search flow
+- Disabled for HAR upload flow (fixed traveler count)
+- Stats grid: `grid-cols-3` with Travelers, Coverage Progress, Seat Changes
+
+**Error Handling:**
+- All API errors use `getFriendlyErrorMessage()` for user-friendly messages
+- Network errors shown as "Unable to connect to server"
+- Generic errors fallback to "An unexpected error occurred"
+- Never exposes technical details or bilkom.pl
+
 ## Key Files
 
 ### `lib/utils.ts`
@@ -452,6 +575,16 @@ Utility functions:
 
 - **`cn()`** - Tailwind class merger (from shadcn/ui)
 - **`parseSeat()`** - Parse "carriage:seat" format into `{ carriage, seat }`
+
+### `lib/error-messages.ts`
+
+Error message utilities:
+
+- **`getFriendlyErrorMessage(error: unknown): string`** - Converts technical errors to user-friendly messages
+- Never exposes bilkom.pl in error messages
+- Handles network errors (ENOTFOUND, ECONNREFUSED, ETIMEDOUT)
+- Handles HTTP status codes (401, 403, 404)
+- Returns generic message for unknown errors
 
 ### `lib/constants.ts`
 
@@ -556,10 +689,10 @@ pnpm start      # Run production build
 ### HAR Upload Flow
 
 1. Navigate to `http://localhost:3000`
-2. Click "Upload HAR File" tab
+2. Click "Upload HAR File" tab (segmented control)
 3. Upload HAR file from `../blikom.har` or `../blikom-new.har`
-4. Set number of travelers
-5. Click "Build seat chains"
+4. Traveler count is displayed in results (fixed from HAR file)
+5. View seat chain results
 
 ### Test API Endpoints Directly
 
@@ -588,11 +721,60 @@ curl -X POST -F "harFile=@../blikom.har" -F "travelers=2" http://localhost:3000/
 3. **HTML parsing fragile**: Trip search relies on parsing HTML - may break if site changes
 4. **TLS verification disabled**: Required for Bilkom API (self-signed certificates)
 5. **No CORS**: All API calls are server-side
-6. **Class 2 seats only for seat chains**: Seat chain algorithmfilters for CLASS_2 seats only
+6. **Class 2 seats only for seat chains**: Seat chain algorithm filters for CLASS_2 seats only
 7. **Blocked seats show both classes**: Blocked seats section displays CLASS_1 and CLASS_2
 8. **Sequential allocation**: Multi-traveler uses greedy approach
 9. **Polish timezone**: All times must use `Europe/Warsaw` for correct display
 10. **Direct connections only**: HAR flow only supports single-train journeys
+
+## Recent Changes
+
+### UI Redesign (April 2026)
+
+**Error Messages:**
+- Created `lib/error-messages.ts` with `getFriendlyErrorMessage()` utility
+- Converted all technical errors to user-friendly messages
+- Network errors → "Unable to connect to server. Please check your internet connection."
+- HTTP 401/403 → "Authentication required" / "Access denied"
+- Never exposes bilkom.pl in error messages
+
+**Station Input Auto-Selection:**
+- Auto-selects top suggestion on blur when dropdown is open
+- Auto-selects when query text matches station name exactly
+- Added `onTopSuggestion` callback for parent components
+
+**Date/Time Input:**
+- Changed from flex layout to compact grid (`grid grid-cols-2 gap-3`)
+- Better spacing and alignment
+
+**Traveler Count:**
+- Removed from both search and HAR upload forms
+- Moved to results stats card
+- Uses NumberStepper component with increment/decrement buttons
+- Editable input with manual typing support
+- Recalculate button for search flow
+
+**NumberStepper Component:**
+- `h-12 w-12` buttons with `h-5 w-5` icons
+- `h-12 w-24` input with `text-3xl font-bold` text
+- Editable number input with +/- buttons
+- Bounds checking (min/max)
+- Hidden browser spinners
+- Centered layout
+
+**Page Layout:**
+- Container width: `max-w-5xl` (increased)
+- Gap spacing: `gap-8` (increased)
+- Hero section: `text-4xl` title, `h-10 w-10` icon
+- Segmented control for mode switching
+- Stats grid: 3 columns (Travelers, Coverage, Seat Changes)
+
+**API Routes:**
+- All 4 routes updated to use friendly error messages
+- `/api/stations/search/route.ts`
+- `/api/trips/search/route.ts`
+- `/api/segments/build/route.ts`
+- `/api/run/route.ts`
 
 ## Future Enhancements
 
