@@ -4,6 +4,7 @@ import { parseSeat } from "@/lib/utils";
 import type { InstructionStep } from "@/lib/instructions";
 import type { PerSegmentAssignment } from "@/lib/seat-chain";
 import { MapPin } from "lucide-react";
+import { formatTime } from "@/lib/formatting";
 
 interface SeatChangeStep {
   station: string;
@@ -19,16 +20,6 @@ interface SeatTimelineProps {
   changeSteps: InstructionStep[];
   totalSegments: number;
   assignments: PerSegmentAssignment[];
-}
-
-function formatTime(isoString: string | undefined): string {
-  if (!isoString) return "";
-  const date = new Date(isoString);
-  return date.toLocaleTimeString("pl-PL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Warsaw",
-  });
 }
 
 function groupConsecutiveSteps(
@@ -109,7 +100,7 @@ export function SeatTimeline({
           {groups.map((group, idx) => {
             const segmentCount = group.segmentCount;
             const percentage = Math.round((segmentCount / totalSegments) * 100);
-            const timeStr = formatTime(group.arrivalTime);
+            const timeStr = group.arrivalTime ? formatTime(group.arrivalTime) : null;
             const isFirst = idx === 0;
 
             return (
@@ -168,7 +159,7 @@ export function SeatTimeline({
         {groups.map((group, idx) => {
           const segmentCount = group.segmentCount;
           const percentage = Math.round((segmentCount / totalSegments) * 100);
-          const timeStr = formatTime(group.arrivalTime);
+          const timeStr = group.arrivalTime ? formatTime(group.arrivalTime) : null;
           const isFirst = idx === 0;
 
           return (

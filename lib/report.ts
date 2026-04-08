@@ -1,6 +1,7 @@
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
 import type { TravelerView } from "@/lib/instructions";
 import { parseSeat } from "@/lib/utils";
+import { formatTime, formatDateTime, formatDuration } from "@/lib/formatting";
 
 export interface TripSummary {
   trainName: string;
@@ -20,47 +21,6 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function formatTime(iso: string | undefined): string {
-  if (!iso) return "—";
-  try {
-    const date = new Date(iso);
-    return date.toLocaleTimeString("pl-PL", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/Warsaw",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-function formatDate(iso: string | undefined): string {
-  if (!iso) return "—";
-  try {
-    const date = new Date(iso);
-    return date.toLocaleDateString("pl-PL", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-function formatDateTime(iso: string | undefined): string {
-  if (!iso) return "—";
-  return `${formatDate(iso)}, ${formatTime(iso)}`;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
 }
 
 function getCarrierColor(carrierId: string): string {

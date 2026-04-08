@@ -4,35 +4,10 @@ import { useState } from "react";
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BlockedSeat } from "@/lib/types";
+import { formatTime, formatDate } from "@/lib/formatting";
 
 interface BlockedSeatsSectionProps {
   blockedSeats: BlockedSeat[];
-}
-
-function formatTime(iso: string): string {
-  try {
-    const date = new Date(iso);
-    return date.toLocaleTimeString("pl-PL", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/Warsaw",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatDate(iso: string): string {
-  try {
-    const date = new Date(iso);
-    return date.toLocaleDateString("pl-PL", {
-      month: "short",
-      day: "numeric",
-      timeZone: "Europe/Warsaw",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 export function BlockedSeatsSection({ blockedSeats }: BlockedSeatsSectionProps) {

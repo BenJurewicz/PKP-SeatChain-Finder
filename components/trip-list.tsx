@@ -6,36 +6,13 @@ import { cn } from "@/lib/utils";
 import { Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import type { Trip } from "@/lib/types";
+import { formatDuration, formatTime, formatDate } from "@/lib/formatting";
 
 interface TripListProps {
   trips: Trip[];
   selectedTrip: Trip | null;
   onSelect: (trip: Trip) => void;
   disabled?: boolean;
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
-}
-
-function formatTime(isoStr: string): string {
-  const date = new Date(isoStr);
-  return date.toLocaleTimeString("pl-PL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(isoStr: string): string {
-  const date = new Date(isoStr);
-  return date.toLocaleDateString("pl-PL", {
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export function TripList({ trips, selectedTrip, onSelect, disabled }: TripListProps) {

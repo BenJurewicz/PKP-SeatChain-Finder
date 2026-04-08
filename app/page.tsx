@@ -30,33 +30,7 @@ import { NumberStepper } from "@/components/number-stepper";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
-
-function formatTime(isoString: string | undefined): string {
-    if (!isoString) return "—";
-    const date = new Date(isoString);
-    return date.toLocaleTimeString("pl-PL", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Europe/Warsaw",
-    });
-}
-
-function formatDate(isoString: string | undefined): string {
-    if (!isoString) return "—";
-    const date = new Date(isoString);
-    return date.toLocaleDateString("pl-PL", {
-        month: "short",
-        day: "numeric",
-    });
-}
-
-function formatDuration(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours === 0) return `${minutes}m`;
-    if (minutes === 0) return `${hours}h`;
-    return `${hours}h ${minutes}m`;
-}
+import { formatTime, formatDate, formatDuration } from "@/lib/formatting";
 
 type RunResponse = {
     seatChain: SeatChainOutput;
