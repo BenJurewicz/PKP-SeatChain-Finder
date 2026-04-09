@@ -1,4 +1,5 @@
-import type { SegmentsOutput } from "@/lib/types";
+import type { SegmentsOutput, SpecialSeatProperty, SpecialSeatFilters } from "@/lib/types";
+import { SPECIAL_SEAT_LABELS } from "@/lib/types";
 import { asObject } from "@/lib/parsing";
 
 export interface NormalizedSegment {
@@ -82,6 +83,42 @@ export type SeatChainOutput = (SingleChainOutput | MultiChainOutput) & {
 
 type Candidate = [covered: number, changes: number, chain: Array<string | null>];
 
+export function detectSpecialSeatProperties(data: SegmentsOutput): Set<SpecialSeatProperty> {
+  const found = new Set<SpecialSeatProperty>();
+
+  for (const item of data.segments) {
+    const response = asObject(item.response);
+    if (!response) continue;
+
+    const carriages = response.carriages;
+    if (!Array.isArray(carriages)) continue;
+
+    for (const rawCarriage of carriages) {
+      const carriage = asObject(rawCarriage);
+      if (!carriage) continue;
+
+      const spots = carriage.spots;
+      if (!Array.isArray(spots)) continue;
+
+      for (const rawSpot of spots) {
+        const spot = asObject(rawSpot);
+        if (!spot) continue;
+
+        const properties = spot.properties;
+        if (!Array.isArray(properties)) continue;
+
+        for (const prop of properties) {
+          if (typeof prop === "string" && prop in SPECIAL_SEAT_LABELS) {
+            found.add(prop as SpecialSeatProperty);
+          }
+        }
+      }
+    }
+  }
+
+  return found;
+}
+
 function normalizeSegments(data: SegmentsOutput): { segments: NormalizedSegment[]; stations: Record<string, string> } {
   const stations = data.stations ?? {};
   const segments: NormalizedSegment[] = [];
@@ -133,7 +170,10 @@ function normalizeSegments(data: SegmentsOutput): { segments: NormalizedSegment[
   };
 }
 
-function extractAvailableClass2Seats(segment: NormalizedSegment): Set<string> {
+function extractAvailableClass2Seats(
+  segment: NormalizedSegment,
+  filters?: SpecialSeatFilters
+): Set<string> {
   const seats = new Set<string>();
   for (const rawCarriage of segment.carriages) {
     const carriage = asObject(rawCarriage);
@@ -151,6 +191,18 @@ function extractAvailableClass2Seats(segment: NormalizedSegment): Set<string> {
       if (status !== "AVAILABLE") continue;
       if (typeof spotNumber !== "number" || !Array.isArray(properties)) continue;
       if (!properties.includes("CLASS_2")) continue;
+
+      // Check for special seat properties and filter if needed
+      if (filters) {
+        const hasExcludedProperty = properties.some((prop) => {
+          if (typeof prop !== "string") return false;
+          const isSpecialProperty = prop in SPECIAL_SEAT_LABELS;
+          const shouldInclude = filters[prop];
+          return isSpecialProperty && !shouldInclude;
+        });
+        if (hasExcludedProperty) continue;
+      }
+
       seats.add(`${carriageNumber}:${spotNumber}`);
     }
   }
@@ -308,7 +360,11 @@ function allocateUniqueChains(
   return chains;
 }
 
-export function buildSeatChainOutput(data: SegmentsOutput, travelers: number): SeatChainOutput {
+export function buildSeatChainOutput(
+  data: SegmentsOutput,
+  travelers: number,
+  specialSeatFilters?: SpecialSeatFilters
+): SeatChainOutput {
   if (travelers < 1) {
     throw new Error("Travelers must be at least 1");
   }
@@ -316,7 +372,9 @@ export function buildSeatChainOutput(data: SegmentsOutput, travelers: number): S
   if (segments.length === 0) {
     throw new Error("No segments provided");
   }
-  const availablePerSegment = segments.map(extractAvailableClass2Seats);
+  const availablePerSegment = segments.map((seg) =>
+    extractAvailableClass2Seats(seg, specialSeatFilters)
+  );
   const chains = allocateUniqueChains(availablePerSegment, travelers);
 
   if (travelers === 1) {

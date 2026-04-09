@@ -3,7 +3,7 @@ import { extractBlockedSeats } from "@/lib/blocked-seats";
 import { parseHarRequestConfig } from "@/lib/har";
 import { buildTravelerViews } from "@/lib/instructions";
 import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
-import { buildSeatChainOutput } from "@/lib/seat-chain";
+import { buildSeatChainOutput, detectSpecialSeatProperties } from "@/lib/seat-chain";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
 import { errorResponse } from "@/app/api/_lib";
 
@@ -33,6 +33,7 @@ export async function POST(request: Request): Promise<Response> {
     const seatChain = buildSeatChainOutput(segmentsOutput, travelers);
     const travelerViews = buildTravelerViews(seatChain);
     const blockedSeats = extractBlockedSeats(segmentsOutput);
+    const detectedSpecialProperties = Array.from(detectSpecialSeatProperties(segmentsOutput));
 
     const firstSegment = segmentsOutput.segments[0];
     const lastSegment = segmentsOutput.segments[segmentsOutput.segments.length - 1];
@@ -61,6 +62,8 @@ export async function POST(request: Request): Promise<Response> {
       travelerViews,
       reportHtml,
       sourceHarName: harFile.name,
+      segmentsData: segmentsOutput,
+      detectedSpecialProperties,
       tripInfo: {
         trainName: tripSummary.trainName,
         carrierId: tripSummary.carrierId,

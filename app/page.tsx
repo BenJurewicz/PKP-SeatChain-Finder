@@ -3,7 +3,7 @@
 import React, { FormEvent, useMemo, useState } from "react";
 import type { TravelerView } from "@/lib/instructions";
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
-import type { Station, Trip, BlockedSeat } from "@/lib/types";
+import type { Station, Trip, BlockedSeat, SegmentsOutput, SpecialSeatProperty, SpecialSeatFilters } from "@/lib/types";
 import type { TripSummary } from "@/lib/report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,17 +26,21 @@ import { CoverageProgress } from "@/components/coverage-progress";
 import { SeatTimeline } from "@/components/seat-timeline";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import { BlockedSeatsSection } from "@/components/blocked-seats-section";
+import { SpecialSeatsFilter } from "@/components/special-seats-filter";
 import { NumberStepper } from "@/components/number-stepper";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
 import { formatTime, formatDate, formatDuration } from "@/lib/formatting";
+import { detectSpecialSeatProperties } from "@/lib/seat-chain";
 
 type RunResponse = {
     seatChain: SeatChainOutput;
     travelerViews: TravelerView[];
     reportHtml: string;
     sourceHarName: string;
+    segmentsData?: SegmentsOutput;
+    detectedSpecialProperties?: SpecialSeatProperty[];
     blockedSeats?: BlockedSeat[];
     tripInfo?: {
         trainName: string;
@@ -85,6 +89,11 @@ export default function Home() {
     const [searchStep, setSearchStep] = useState<"stations" | "trips" | "results">("stations");
     const [showDetailedView, setShowDetailedView] = useState(false);
 
+    const [segmentsData, setSegmentsData] = useState<SegmentsOutput | null>(null);
+    const [detectedProperties, setDetectedProperties] = useState<SpecialSeatProperty[]>([]);
+    const [specialFilters, setSpecialFilters] = useState<SpecialSeatFilters>({});
+    const [initialFilters, setInitialFilters] = useState<SpecialSeatFilters>({});
+
     const hasCollisions = useMemo(() => {
         if (!result) return false;
         if (isMultiChainOutput(result.seatChain)) {
@@ -115,6 +124,10 @@ export default function Home() {
         return result.seatChain.summary.seatChanges;
     }, [result]);
 
+    const filtersChanged = useMemo(() => {
+        return JSON.stringify(specialFilters) !== JSON.stringify(initialFilters);
+    }, [specialFilters, initialFilters]);
+
     const resetSearch = () => {
         setTrips([]);
         setSelectedTrip(null);
@@ -122,6 +135,10 @@ export default function Home() {
         setError(null);
         setSearchStep("stations");
         setShowDetailedView(false);
+        setSegmentsData(null);
+        setDetectedProperties([]);
+        setSpecialFilters({});
+        setInitialFilters({});
     };
 
     async function handleHarSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -150,13 +167,29 @@ export default function Home() {
             if (!data.seatChain || !data.travelerViews || !data.reportHtml || !data.sourceHarName) {
                 throw new Error("Invalid API response");
             }
+            
             setResult({
                 seatChain: data.seatChain,
                 travelerViews: data.travelerViews,
                 reportHtml: data.reportHtml,
                 sourceHarName: data.sourceHarName,
+                segmentsData: data.segmentsData,
+                detectedSpecialProperties: data.detectedSpecialProperties,
                 tripInfo: data.tripInfo,
+                blockedSeats: data.blockedSeats,
             });
+
+            if (data.segmentsData) {
+                const detected = data.detectedSpecialProperties ?? Array.from(detectSpecialSeatProperties(data.segmentsData));
+                setSegmentsData(data.segmentsData);
+                setDetectedProperties(detected);
+                const initialFilterState: SpecialSeatFilters = {};
+                for (const prop of detected) {
+                    initialFilterState[prop] = false;
+                }
+                setSpecialFilters(initialFilterState);
+                setInitialFilters(initialFilterState);
+            }
         } catch (submitError) {
             setError(getFriendlyErrorMessage(submitError));
         } finally {
@@ -227,10 +260,12 @@ export default function Home() {
             const { buildTravelerViews } = await import("@/lib/instructions");
             const { generateStaticReportHtml } = await import("@/lib/report");
             const { extractBlockedSeats } = await import("@/lib/blocked-seats");
+            const { detectSpecialSeatProperties } = await import("@/lib/seat-chain");
 
             const seatChain = buildSeatChainOutput(segmentsData, travelers);
             const travelerViews = buildTravelerViews(seatChain);
             const blockedSeats = extractBlockedSeats(segmentsData);
+            const detected = Array.from(detectSpecialSeatProperties(segmentsData));
 
             const tripSummary: TripSummary = {
                 trainName: trip.trainName,
@@ -249,6 +284,8 @@ export default function Home() {
                 travelerViews,
                 reportHtml,
                 sourceHarName: `${trip.trainName} (${trip.departure.stationName} → ${trip.arrival.stationName})`,
+                segmentsData,
+                detectedSpecialProperties: detected,
                 blockedSeats,
                 tripInfo: {
                     trainName: trip.trainName,
@@ -260,9 +297,45 @@ export default function Home() {
                     duration: trip.duration,
                 },
             });
+
+            setSegmentsData(segmentsData);
+            setDetectedProperties(detected);
+            const initialFilterState: SpecialSeatFilters = {};
+            for (const prop of detected) {
+                initialFilterState[prop] = false;
+            }
+            setSpecialFilters(initialFilterState);
+            setInitialFilters(initialFilterState);
             setSearchStep("results");
         } catch (buildError) {
             setError(getFriendlyErrorMessage(buildError));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleRecalculate(): Promise<void> {
+        if (!segmentsData) return;
+        
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const { buildSeatChainOutput } = await import("@/lib/seat-chain");
+            const { buildTravelerViews } = await import("@/lib/instructions");
+            
+            const seatChain = buildSeatChainOutput(segmentsData, travelers, specialFilters);
+            const travelerViews = buildTravelerViews(seatChain);
+            
+            setResult(prev => prev ? {
+                ...prev,
+                seatChain,
+                travelerViews,
+            } : null);
+            
+            setInitialFilters(specialFilters);
+        } catch (recalcError) {
+            setError(getFriendlyErrorMessage(recalcError));
         } finally {
             setLoading(false);
         }
@@ -301,6 +374,10 @@ export default function Home() {
                                 setMode("har");
                                 setResult(null);
                                 setError(null);
+                                setSegmentsData(null);
+                                setDetectedProperties([]);
+                                setSpecialFilters({});
+                                setInitialFilters({});
                             }}
                             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === "har"
                                 ? "bg-background text-foreground shadow-sm"
@@ -632,6 +709,21 @@ export default function Home() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {detectedProperties.length > 0 && (
+                            <Card>
+                                <CardContent className="py-4">
+                                    <SpecialSeatsFilter
+                                        detectedProperties={detectedProperties}
+                                        filters={specialFilters}
+                                        onFiltersChange={setSpecialFilters}
+                                        onRecalculate={handleRecalculate}
+                                        disabled={loading}
+                                        filtersChanged={filtersChanged}
+                                    />
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Card>
                             <CardContent className="py-4">

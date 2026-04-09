@@ -84,3 +84,22 @@ export interface BlockedSeat {
   firstDepartureTime?: string;
   lastArrivalTime?: string;
 }
+
+export type SpecialSeatProperty =
+  | "HANDICAPPED_GUARDIAN"
+  | "HANDICAPPED_WITH_WHEELCHAIR"
+  | "HANDICAPPED_WITHOUT_WHEELCHAIR"
+  | "BIKE"
+  | "PERSON_WITH_CHILD";
+
+export interface SpecialSeatFilters {
+  [property: string]: boolean;
+}
+
+export const SPECIAL_SEAT_LABELS: Record<SpecialSeatProperty, string> = {
+  HANDICAPPED_GUARDIAN: "Guardian seats (for accompanying handicapped passengers)",
+  HANDICAPPED_WITH_WHEELCHAIR: "Wheelchair accessible seats",
+  HANDICAPPED_WITHOUT_WHEELCHAIR: "Handicapped seats (no wheelchair required)",
+  BIKE: "Bike storage seats",
+  PERSON_WITH_CHILD: "Seats for persons with children",
+};
