@@ -32,5 +32,5 @@ export async function runHarFile(params: RunParams): Promise<RunResponse> {
   formData.set('harFile', params.harFile);
   formData.set('travelers', String(params.travelers));
   
-  return await apiClient.postFormData<RunResponse>('/api/run', formData);
+  return await apiClient.postFormData<RunResponse>('/run', formData);
 }

@@ -13,6 +13,6 @@ export interface TripSearchParams {
 }
 
 export async function searchTrips(params: TripSearchParams): Promise<Trip[]> {
-  const result = await apiClient.post<TripSearchResponse>('/api/trips/search', params);
+  const result = await apiClient.post<TripSearchResponse>('/trips/search', params);
   return result.trips;
 }

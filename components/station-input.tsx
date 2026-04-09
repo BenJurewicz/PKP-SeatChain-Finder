@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { MapPin, Loader2 } from "lucide-react";
 import type { Station } from "@/lib/domain/types";
+import { searchStations as apiSearchStations } from "@/lib/services/stations";
 
 interface StationInputProps {
   value: Station | null;
@@ -50,14 +51,8 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
     setError(null);
 
     try {
-      const response = await fetch(`/api/stations/search?q=${encodeURIComponent(searchQuery)}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to search stations");
-      }
-
-      setStations(data.stations || []);
+      const results = await apiSearchStations(searchQuery);
+      setStations(results);
       setIsOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");

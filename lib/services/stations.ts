@@ -13,7 +13,7 @@ export async function searchStations(query: string): Promise<Station[]> {
   }
 
   const result = await apiClient.get<StationSearchResponse>(
-    `/api/stations/search?q=${encodeURIComponent(trimmed)}`
+    `/stations/search?q=${encodeURIComponent(trimmed)}`
   );
   
   return result.stations;

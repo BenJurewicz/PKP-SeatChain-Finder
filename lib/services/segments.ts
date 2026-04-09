@@ -1,18 +1,10 @@
 import { apiClient } from './api-client';
-import type { SegmentsOutput, JsonObject } from '@/lib/domain/types';
+import type { SegmentsOutput } from '@/lib/domain/types';
 
 export interface SegmentBuildParams {
-  segmentRequest: {
-    stationFrom: number;
-    stationTo: number;
-    vehicleNumber: number;
-    departureDate: string;
-    arrivalDate: string;
-    stationNumberingSystem?: string;
-    type?: string;
-  };
+  segmentRequest: Record<string, unknown>;
 }
 
 export async function buildSegments(params: SegmentBuildParams): Promise<SegmentsOutput> {
-  return await apiClient.post<SegmentsOutput>('/api/segments/build', params);
+  return await apiClient.post<SegmentsOutput>('/segments/build', params);
 }

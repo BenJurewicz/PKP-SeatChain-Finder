@@ -1,10 +1,17 @@
 "use client";
 
 import React, { FormEvent, useMemo, useState } from "react";
-import type { TravelerView } from "@/lib/domain/instructions";
-import { isMultiChainOutput, type SeatChainOutput } from "@/lib/domain/seat-chain";
-import type { Station, Trip, BlockedSeat } from "@/lib/domain/types";
+import { isMultiChainOutput } from "@/lib/domain/seat-chain";
+import type { Station, Trip } from "@/lib/domain/types";
+import { buildSeatChainOutput } from "@/lib/domain/seat-chain";
+import { buildTravelerViews } from "@/lib/domain/instructions";
+import { extractBlockedSeats } from "@/lib/domain/blocked-seats";
+import { generateStaticReportHtml } from "@/lib/report";
 import type { TripSummary } from "@/lib/report";
+import { searchTrips } from "@/lib/services/trips";
+import { buildSegments } from "@/lib/services/segments";
+import { runHarFile } from "@/lib/services/run";
+import type { RunResponse } from "@/lib/services/run";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,43 +36,17 @@ import { BlockedSeatsSection } from "@/components/blocked-seats-section";
 import { NumberStepper } from "@/components/number-stepper";
 import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { parseSeat } from "@/lib/utils";
+import { downloadReportHtml } from "@/lib/utils/download";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
-import { formatTime, formatDate, formatDuration } from "@/lib/formatting";
-
-type RunResponse = {
-    seatChain: SeatChainOutput;
-    travelerViews: TravelerView[];
-    reportHtml: string;
-    sourceHarName: string;
-    blockedSeats?: BlockedSeat[];
-    tripInfo?: {
-        trainName: string;
-        carrierId: string;
-        departureStation: string;
-        arrivalStation: string;
-        departureTime: string;
-        arrivalTime: string;
-        duration: number;
-    };
-};
-
-function downloadReportHtml(html: string): void {
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "seat-chain-report.html";
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-}
+import { formatTime, formatDate, formatDuration, toPolishIsoString } from "@/lib/formatting";
 
 function getDefaultDateTime(): { date: string; time: string } {
     const now = new Date();
-    const date = now.toISOString().split("T")[0];
-    const time = now.toTimeString().slice(0, 5);
-    return { date, time };
+    const polishStr = toPolishIsoString(now);
+    return {
+        date: polishStr.split("T")[0],
+        time: polishStr.split("T")[1].slice(0, 5),
+    };
 }
 
 export default function Home() {
@@ -135,28 +116,8 @@ export default function Home() {
         setResult(null);
 
         try {
-            const formData = new FormData();
-            formData.set("harFile", harFile);
-            formData.set("travelers", String(travelers));
-
-            const response = await fetch("/api/run", {
-                method: "POST",
-                body: formData,
-            });
-            const data = (await response.json()) as Partial<RunResponse> & { error?: string };
-            if (!response.ok) {
-                throw new Error(data.error ?? "Pipeline failed");
-            }
-            if (!data.seatChain || !data.travelerViews || !data.reportHtml || !data.sourceHarName) {
-                throw new Error("Invalid API response");
-            }
-            setResult({
-                seatChain: data.seatChain,
-                travelerViews: data.travelerViews,
-                reportHtml: data.reportHtml,
-                sourceHarName: data.sourceHarName,
-                tripInfo: data.tripInfo,
-            });
+            const data = await runHarFile({ harFile, travelers });
+            setResult(data);
         } catch (submitError) {
             setError(getFriendlyErrorMessage(submitError));
         } finally {
@@ -181,21 +142,13 @@ export default function Home() {
         setResult(null);
 
         try {
-            const response = await fetch("/api/trips/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fromStation,
-                    toStation,
-                    date: tripDate,
-                    time: tripTime,
-                }),
+            const results = await searchTrips({
+                fromStation,
+                toStation,
+                date: tripDate,
+                time: tripTime,
             });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error ?? "Failed to search trips");
-            }
-            setTrips(data.trips || []);
+            setTrips(results);
             setSearchStep("trips");
         } catch (searchError) {
             setError(getFriendlyErrorMessage(searchError));
@@ -211,22 +164,7 @@ export default function Home() {
         setResult(null);
 
         try {
-            const segmentRequest = trip.segmentRequest;
-
-            const response = await fetch("/api/segments/build", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ segmentRequest }),
-            });
-            const segmentsData = await response.json();
-            if (!response.ok) {
-                throw new Error(segmentsData.error ?? "Failed to build segments");
-            }
-
-            const { buildSeatChainOutput } = await import("@/lib/domain/seat-chain");
-            const { buildTravelerViews } = await import("@/lib/domain/instructions");
-            const { generateStaticReportHtml } = await import("@/lib/report");
-            const { extractBlockedSeats } = await import("@/lib/domain/blocked-seats");
+            const segmentsData = await buildSegments({ segmentRequest: trip.segmentRequest });
 
             const seatChain = buildSeatChainOutput(segmentsData, travelers);
             const travelerViews = buildTravelerViews(seatChain);
