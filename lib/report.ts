@@ -2,6 +2,7 @@ import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
 import type { TravelerView } from "@/lib/instructions";
 import { parseSeat } from "@/lib/utils";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/formatting";
+import { groupConsecutiveSteps } from "@/lib/domain/group-steps";
 
 export interface TripSummary {
   trainName: string;
@@ -32,78 +33,6 @@ function getCarrierColor(carrierId: string): string {
   return colors[carrierId.toUpperCase()] || "#6b7280";
 }
 
-function groupConsecutiveSteps(
-  steps: TravelerView["changeSteps"],
-  assignments: TravelerView["assignments"]
-): Array<{
-  station: string;
-  carriage: string | null;
-  seat: string | null;
-  type: string;
-  time?: string;
-  segmentCount: number;
-}> {
-  const groups: Array<{
-    station: string;
-    carriage: string | null;
-    seat: string | null;
-    type: string;
-    time?: string;
-    segmentCount: number;
-  }> = [];
-
-  if (steps.length === 0) return groups;
-
-  let currentGroup: (typeof groups)[0] | null = null;
-  let currentSeatString: string | null = null;
-
-  for (const step of steps) {
-    const seatString = step.seat;
-    const parsed = step.seat ? parseSeat(step.seat) : { carriage: null, seat: null };
-
-    if (!currentGroup) {
-      currentGroup = {
-        station: step.station,
-        carriage: parsed.carriage,
-        seat: parsed.seat,
-        type: step.type,
-        time: step.arrivalTime,
-        segmentCount: 0,
-      };
-      currentSeatString = seatString;
-    } else if (seatString === currentSeatString) {
-      // Same seat as current group, continue
-    } else {
-      // Different seat, finalize current group
-      currentGroup.segmentCount = assignments.filter(
-        (a) => a.assignedSeat === currentSeatString
-      ).length;
-      groups.push(currentGroup);
-
-      // Start new group
-      currentGroup = {
-        station: step.station,
-        carriage: parsed.carriage,
-        seat: parsed.seat,
-        type: step.type,
-        time: step.arrivalTime,
-        segmentCount: 0,
-      };
-      currentSeatString = seatString;
-    }
-  }
-
-  // Push final group
-  if (currentGroup) {
-    currentGroup.segmentCount = assignments.filter(
-      (a) => a.assignedSeat === currentSeatString
-    ).length;
-    groups.push(currentGroup);
-  }
-
-  return groups;
-}
-
 function renderTimeline(
   travelerViews: TravelerView[],
   totalSegments: number
@@ -115,7 +44,7 @@ function renderTimeline(
         .map((group, idx) => {
           const segmentCount = group.segmentCount;
           const percentage = Math.round((segmentCount / totalSegments) * 100);
-          const timeStr = formatTime(group.time);
+          const timeStr = formatTime(group.arrivalTime);
           const isFirst = idx === 0;
 
           const timeLabel = isFirst ? "Dep" : "Arr";

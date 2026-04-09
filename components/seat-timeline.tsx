@@ -1,83 +1,16 @@
 "use client";
 
-import { parseSeat } from "@/lib/utils";
 import type { InstructionStep } from "@/lib/instructions";
 import type { PerSegmentAssignment } from "@/lib/seat-chain";
 import { MapPin } from "lucide-react";
 import { formatTime } from "@/lib/formatting";
-
-interface SeatChangeStep {
-  station: string;
-  carriage: string | null;
-  seat: string | null;
-  type: "start" | "change" | "resume" | "gap";
-  arrivalTime?: string;
-  segmentCount: number;
-}
+import { groupConsecutiveSteps } from "@/lib/domain/group-steps";
 
 interface SeatTimelineProps {
   travelerIndex: number;
   changeSteps: InstructionStep[];
   totalSegments: number;
   assignments: PerSegmentAssignment[];
-}
-
-function groupConsecutiveSteps(
-  steps: InstructionStep[],
-  assignments: PerSegmentAssignment[]
-): SeatChangeStep[] {
-  if (steps.length === 0) return [];
-
-  const groups: SeatChangeStep[] = [];
-  let currentGroup: SeatChangeStep | null = null;
-  let currentSeatString: string | null = null;
-
-  for (const step of steps) {
-    const seatString = step.seat;
-    const parsed = step.seat ? parseSeat(step.seat) : { carriage: null, seat: null };
-
-    if (!currentGroup) {
-      currentGroup = {
-        station: step.station,
-        carriage: parsed.carriage,
-        seat: parsed.seat,
-        type: step.type,
-        arrivalTime: step.arrivalTime,
-        segmentCount: 0,
-      };
-      currentSeatString = seatString;
-    } else if (seatString === currentSeatString) {
-      // Same seat as current group, continue (this shouldn't happen in changeSteps
-      // since each step is a change point, but handle it gracefully)
-    } else {
-      // Different seat, finalize current group
-      currentGroup.segmentCount = assignments.filter(
-        (a) => a.assignedSeat === currentSeatString
-      ).length;
-      groups.push(currentGroup);
-
-      // Start new group
-      currentGroup = {
-        station: step.station,
-        carriage: parsed.carriage,
-        seat: parsed.seat,
-        type: step.type,
-        arrivalTime: step.arrivalTime,
-        segmentCount: 0,
-      };
-      currentSeatString = seatString;
-    }
-  }
-
-  // Push final group
-  if (currentGroup) {
-    currentGroup.segmentCount = assignments.filter(
-      (a) => a.assignedSeat === currentSeatString
-    ).length;
-    groups.push(currentGroup);
-  }
-
-  return groups;
 }
 
 export function SeatTimeline({
