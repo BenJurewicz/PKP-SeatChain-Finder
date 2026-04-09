@@ -1,5 +1,5 @@
 import { apiClient } from './api-client';
-import type { SegmentsOutput, JsonObject } from '@/lib/types';
+import type { SegmentsOutput, JsonObject } from '@/lib/domain/types';
 
 export interface SegmentBuildParams {
   segmentRequest: {

@@ -1,5 +1,5 @@
-import type { JsonObject } from "./types";
-import { DEFAULT_BILKOM_GRM_URL, DEFAULT_BILKOM_HEADERS } from "./constants";
+import type { JsonObject } from "./domain/types";
+import { DEFAULT_BILKOM_GRM_URL, DEFAULT_BILKOM_HEADERS } from "./utils/constants";
 
 export interface SegmentRequestConfig {
   stationFrom: number;

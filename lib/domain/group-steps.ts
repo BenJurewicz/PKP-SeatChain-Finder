@@ -1,5 +1,5 @@
 import { parseSeat } from '@/lib/utils';
-import type { PerSegmentAssignment } from '../seat-chain';
+import type { PerSegmentAssignment } from './seat-chain';
 
 /**
  * Represents a contiguous group of segments with the same seat assignment.

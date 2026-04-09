@@ -1,5 +1,5 @@
-import { HttpError, postJson, postText } from "@/lib/http";
-import type { HarRequestConfig, JsonObject, SegmentsOutput, SegmentOutputItem } from "@/lib/types";
+import { HttpError, postJson, postText } from "../http";
+import type { HarRequestConfig, JsonObject, SegmentsOutput, SegmentOutputItem } from "./types";
 import { requireObject } from "@/lib/parsing";
 
 function requireField(

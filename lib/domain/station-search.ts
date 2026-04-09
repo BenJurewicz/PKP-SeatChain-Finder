@@ -1,5 +1,5 @@
-import { getText } from "./http";
-import { BILKOM_STATION_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "./constants";
+import { getText } from "../http";
+import { BILKOM_STATION_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "../utils/constants";
 import type { Station } from "./types";
 
 interface StationApiResponse {

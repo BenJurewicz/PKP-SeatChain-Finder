@@ -1,4 +1,4 @@
-import type { JsonObject } from '@/lib/types';
+import type { JsonObject } from '@/lib/domain/types';
 
 /**
  * Safely casts an unknown value to an object, returning null if invalid.

@@ -1,7 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import zlib from "node:zlib";
-import { SEARCH_REQUEST_TIMEOUT_MS } from "./constants";
+import { SEARCH_REQUEST_TIMEOUT_MS } from "./utils/constants";
 
 export class HttpError extends Error {
   status: number;

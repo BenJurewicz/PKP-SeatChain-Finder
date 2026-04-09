@@ -1,9 +1,9 @@
-import { buildSegmentsOutput } from "@/lib/bilkom";
-import { extractBlockedSeats } from "@/lib/blocked-seats";
-import { parseHarRequestConfig } from "@/lib/har";
-import { buildTravelerViews } from "@/lib/instructions";
+import { buildSegmentsOutput } from "@/lib/domain/bilkom";
+import { extractBlockedSeats } from "@/lib/domain/blocked-seats";
+import { parseHarRequestConfig } from "@/lib/parsing/har";
+import { buildTravelerViews } from "@/lib/domain/instructions";
 import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
-import { buildSeatChainOutput } from "@/lib/seat-chain";
+import { buildSeatChainOutput } from "@/lib/domain/seat-chain";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
 import { errorResponse } from "@/app/api/_lib";
 

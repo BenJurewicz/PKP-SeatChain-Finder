@@ -1,4 +1,4 @@
-import type { SegmentsOutput } from "@/lib/types";
+import type { SegmentsOutput } from "./types";
 import { asObject } from "@/lib/parsing";
 
 export interface NormalizedSegment {

@@ -1,7 +1,7 @@
 import { apiClient } from './api-client';
-import type { BlockedSeat } from '@/lib/types';
-import type { SeatChainOutput } from '@/lib/seat-chain';
-import type { TravelerView } from '@/lib/instructions';
+import type { BlockedSeat } from '@/lib/domain/types';
+import type { SeatChainOutput } from '@/lib/domain/seat-chain';
+import type { TravelerView } from '@/lib/domain/instructions';
 
 export interface TripInfo {
   trainName: string;

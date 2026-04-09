@@ -3,7 +3,7 @@ import {
   type PerSegmentAssignment,
   type SeatChainOutput,
   type SingleChainOutput,
-} from "@/lib/seat-chain";
+} from "./seat-chain";
 
 export interface InstructionStep {
   type: "start" | "change" | "resume" | "gap";

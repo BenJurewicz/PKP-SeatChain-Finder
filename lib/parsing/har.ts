@@ -1,4 +1,4 @@
-import type { HarRequestConfig, JsonValue } from "@/lib/types";
+import type { HarRequestConfig, JsonValue } from "../domain/types";
 import { requireObject, requireJsonObject } from "@/lib/parsing";
 
 function deriveGrmUrls(grmUrl: string): {

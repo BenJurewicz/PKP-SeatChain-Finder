@@ -1,5 +1,5 @@
-import { findTrips } from "@/lib/trip-search";
-import type { Station } from "@/lib/types";
+import { findTrips } from "@/lib/domain/trip-search";
+import type { Station } from "@/lib/domain/types";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
 import { errorResponse } from "@/app/api/_lib";
 

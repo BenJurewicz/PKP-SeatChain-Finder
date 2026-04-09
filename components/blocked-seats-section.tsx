@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { BlockedSeat } from "@/lib/types";
+import type { BlockedSeat } from "@/lib/domain/types";
 import { formatTime, formatDate } from "@/lib/formatting";
 
 interface BlockedSeatsSectionProps {

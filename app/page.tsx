@@ -1,9 +1,9 @@
 "use client";
 
 import React, { FormEvent, useMemo, useState } from "react";
-import type { TravelerView } from "@/lib/instructions";
-import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
-import type { Station, Trip, BlockedSeat } from "@/lib/types";
+import type { TravelerView } from "@/lib/domain/instructions";
+import { isMultiChainOutput, type SeatChainOutput } from "@/lib/domain/seat-chain";
+import type { Station, Trip, BlockedSeat } from "@/lib/domain/types";
 import type { TripSummary } from "@/lib/report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,10 +223,10 @@ export default function Home() {
                 throw new Error(segmentsData.error ?? "Failed to build segments");
             }
 
-            const { buildSeatChainOutput } = await import("@/lib/seat-chain");
-            const { buildTravelerViews } = await import("@/lib/instructions");
+            const { buildSeatChainOutput } = await import("@/lib/domain/seat-chain");
+            const { buildTravelerViews } = await import("@/lib/domain/instructions");
             const { generateStaticReportHtml } = await import("@/lib/report");
-            const { extractBlockedSeats } = await import("@/lib/blocked-seats");
+            const { extractBlockedSeats } = await import("@/lib/domain/blocked-seats");
 
             const seatChain = buildSeatChainOutput(segmentsData, travelers);
             const travelerViews = buildTravelerViews(seatChain);

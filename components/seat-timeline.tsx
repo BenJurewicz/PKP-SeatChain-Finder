@@ -1,7 +1,7 @@
 "use client";
 
-import type { InstructionStep } from "@/lib/instructions";
-import type { PerSegmentAssignment } from "@/lib/seat-chain";
+import type { InstructionStep } from "@/lib/domain/instructions";
+import type { PerSegmentAssignment } from "@/lib/domain/seat-chain";
 import { MapPin } from "lucide-react";
 import { formatTime } from "@/lib/formatting";
 import { groupConsecutiveSteps } from "@/lib/domain/group-steps";

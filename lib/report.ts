@@ -1,5 +1,5 @@
-import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
-import type { TravelerView } from "@/lib/instructions";
+import { isMultiChainOutput, type SeatChainOutput } from "@/lib/domain/seat-chain";
+import type { TravelerView } from "@/lib/domain/instructions";
 import { parseSeat } from "@/lib/utils";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/formatting";
 import { groupConsecutiveSteps } from "@/lib/domain/group-steps";

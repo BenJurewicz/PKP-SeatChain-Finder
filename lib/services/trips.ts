@@ -1,5 +1,5 @@
 import { apiClient } from './api-client';
-import type { Station, Trip } from '@/lib/types';
+import type { Station, Trip } from '@/lib/domain/types';
 
 export interface TripSearchResponse {
   trips: Trip[];

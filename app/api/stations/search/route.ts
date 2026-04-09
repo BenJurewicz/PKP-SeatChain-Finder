@@ -1,5 +1,5 @@
-import { searchStations } from "@/lib/station-search";
-import { DEFAULT_SEARCH_HEADERS } from "@/lib/constants";
+import { searchStations } from "@/lib/domain/station-search";
+import { DEFAULT_SEARCH_HEADERS } from "@/lib/utils/constants";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
 import { errorResponse } from "@/app/api/_lib";
 

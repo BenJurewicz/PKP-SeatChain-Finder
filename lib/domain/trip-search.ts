@@ -1,8 +1,8 @@
-import { getText } from "./http";
-import { BILKOM_TRIP_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "./constants";
-import type { Station } from "./types";
+import { getText } from "../http";
+import { BILKOM_TRIP_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "../utils/constants";
+import type { Station, Trip } from "./types";
 
-export interface TripStop {
+interface BilkomTripStop {
   stationId: string;
   stationName: string;
   arrivalDate: string | null;
@@ -11,7 +11,7 @@ export interface TripStop {
   track?: string;
 }
 
-export interface Trip {
+interface BilkomTrip {
   tripIndex: number;
   trainName: string;
   trainNumber: string;
@@ -27,7 +27,7 @@ export interface Trip {
     dateTime: string;
   };
   duration: number;
-  stops: TripStop[];
+  stops: BilkomTripStop[];
   segmentRequest: {
     stationFrom: number;
     stationTo: number;
@@ -131,7 +131,7 @@ function decodeHTMLEntities(str: string): string {
 
 function extractStopsFromTripData(
   tripData: Record<string, unknown> | null
-): TripStop[] {
+): BilkomTripStop[] {
   if (!tripData) return [];
 
   const stops = tripData.stops;
@@ -150,7 +150,7 @@ function extractStopsFromTripData(
   });
 }
 
-function isValidTrip(trip: Partial<Trip>): trip is Trip {
+function isValidTrip(trip: Partial<BilkomTrip>): trip is BilkomTrip {
   if (!trip.departure?.stationId || !trip.arrival?.stationId) return false;
   if (!trip.trainNumber || !trip.departure?.dateTime || !trip.arrival?.dateTime) return false;
   if (!trip.stops || trip.stops.length < 2) return false;
@@ -227,7 +227,7 @@ export async function findTrips(
     const firstStop = stops[0];
     const lastStop = stops[stops.length - 1];
 
-    const trip: Partial<Trip> = {
+    const bilkomTrip: Partial<BilkomTrip> = {
       tripIndex: match.tripIndex,
       trainName: match.trainName,
       trainNumber: num != null ? String(num) : "",
@@ -255,7 +255,19 @@ export async function findTrips(
       },
     };
 
-    if (isValidTrip(trip)) {
+    if (isValidTrip(bilkomTrip)) {
+      // Convert BilkomTrip to Trip
+      const trip: Trip = {
+        tripIndex: bilkomTrip.tripIndex,
+        trainName: bilkomTrip.trainName,
+        trainNumber: bilkomTrip.trainNumber,
+        carrierId: bilkomTrip.carrierId,
+        departure: bilkomTrip.departure,
+        arrival: bilkomTrip.arrival,
+        duration: bilkomTrip.duration,
+        stops: bilkomTrip.stops,
+        segmentRequest: bilkomTrip.segmentRequest as unknown as Trip["segmentRequest"],
+      };
       trips.push(trip);
     }
   }

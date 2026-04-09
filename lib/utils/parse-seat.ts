@@ -1,10 +1,3 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
 /**
  * Parse a seat string in "carriage:seat" format.
  * @param seat - The seat string (e.g., "10:42") or null
@@ -27,4 +20,3 @@ export function parseSeat(seat: string | null): { carriage: string | null; seat:
   // Malformed string (no colon) - treat as seat only
   return { carriage: null, seat };
 }
-

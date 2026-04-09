@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
-import type { Trip } from "@/lib/types";
+import type { Trip } from "@/lib/domain/types";
 import { formatDuration, formatTime, formatDate } from "@/lib/formatting";
 
 interface TripListProps {
