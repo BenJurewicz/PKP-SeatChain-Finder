@@ -48,6 +48,13 @@ const percentage = Math.round((segmentCount / totalSegments) * 100);
 ```
 **Do NOT use `changeSteps` indices** - that array only contains change points, not all segments.
 
+## No Emojis in Source Code
+
+**Never use emoji characters in source code.** Use icon components or SVGs instead:
+- Use shadcn/ui icon components (e.g., `lucide-react`) for UI icons
+- Use SVG files from `/public/icons/` for carrier/brand icons
+- Emoji characters (✅❌🚂etc.) must never appear in `.ts`, `.tsx`, `.js`, or `.jsx` files
+
 ## Carrier Icons
 
 Map carrier IDs to `/public/icons/`:
