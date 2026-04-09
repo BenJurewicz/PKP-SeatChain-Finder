@@ -185,7 +185,7 @@ export async function findTrips(
 
   const params = new URLSearchParams({
     basketKey: "",
-    carrierKeys: "PZ,P2,P3,P1,P5,P7,P9,P0,O1,P4",
+    carrierKeys: "PZ,P2,P3,P1,P5,P7,P9,P0,O1,P4,P6",
     trainGroupKeys: "G.EXPRESS_TRAINS,G.FAST_TRAINS,G.REGIONAL_TRAINS",
     returnForOrderKey: "",
     fromStation: fromStation.name,
@@ -202,7 +202,7 @@ export async function findTrips(
     date: formattedDate,
     time: formattedTime,
     przyjazd: "false",
-    bilkomAvailOnly: "on",
+    // bilkomAvailOnly: "on",
     directOnly: "on",
     _csrf: "",
   });
