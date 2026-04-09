@@ -1,18 +1,5 @@
-import type { HarRequestConfig, JsonObject, JsonValue } from "@/lib/types";
-
-function asObject(value: unknown, message: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(message);
-  }
-  return value as Record<string, unknown>;
-}
-
-function toJsonObject(value: unknown, message: string): JsonObject {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(message);
-  }
-  return value as JsonObject;
-}
+import type { HarRequestConfig, JsonValue } from "@/lib/types";
+import { requireObject, requireJsonObject } from "@/lib/parsing";
 
 function deriveGrmUrls(grmUrl: string): {
   grmUrl: string;
@@ -42,15 +29,15 @@ export function parseHarRequestConfig(harText: string): HarRequestConfig {
     throw new Error(`Invalid HAR JSON: ${(error as Error).message}`);
   }
 
-  const root = asObject(parsedRoot, "HAR root must be an object");
-  const log = asObject(root.log, "HAR missing log object");
+  const root = requireObject(parsedRoot, "HAR root");
+  const log = requireObject(root.log, "HAR log");
   const entries = log.entries;
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error("HAR missing log.entries");
   }
 
-  const firstEntry = asObject(entries[0], "HAR first entry must be an object");
-  const request = asObject(firstEntry.request, "HAR first entry missing request");
+  const firstEntry = requireObject(entries[0], "HAR first entry");
+  const request = requireObject(firstEntry.request, "HAR request");
   const grmUrlRaw = request.url;
   if (typeof grmUrlRaw !== "string" || !grmUrlRaw.trim()) {
     throw new Error("HAR request.url missing or invalid");
@@ -73,7 +60,7 @@ export function parseHarRequestConfig(harText: string): HarRequestConfig {
   }
   delete headers["Content-Length"];
 
-  const postData = asObject(request.postData, "HAR request.postData missing");
+  const postData = requireObject(request.postData, "HAR postData");
   const text = postData.text;
   if (typeof text !== "string") {
     throw new Error("HAR request.postData.text missing or invalid");
@@ -85,7 +72,7 @@ export function parseHarRequestConfig(harText: string): HarRequestConfig {
   } catch (error) {
     throw new Error(`HAR postData.text is not valid JSON: ${(error as Error).message}`);
   }
-  const payload = toJsonObject(payloadParsed, "HAR payload must be a JSON object");
+  const payload = requireJsonObject(payloadParsed, "HAR payload");
 
   const urls = deriveGrmUrls(grmUrlRaw);
   return {

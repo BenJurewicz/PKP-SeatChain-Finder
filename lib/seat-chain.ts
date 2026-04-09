@@ -1,4 +1,5 @@
 import type { SegmentsOutput } from "@/lib/types";
+import { asObject } from "@/lib/parsing";
 
 export interface NormalizedSegment {
   segmentIndex: number;
@@ -80,11 +81,6 @@ export type SeatChainOutput = (SingleChainOutput | MultiChainOutput) & {
 };
 
 type Candidate = [covered: number, changes: number, chain: Array<string | null>];
-
-function asObject(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
 
 function normalizeSegments(data: SegmentsOutput): { segments: NormalizedSegment[]; stations: Record<string, string> } {
   const stations = data.stations ?? {};

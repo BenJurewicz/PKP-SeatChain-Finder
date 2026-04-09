@@ -1,5 +1,6 @@
 import { HttpError, postJson, postText } from "@/lib/http";
 import type { HarRequestConfig, JsonObject, SegmentsOutput, SegmentOutputItem } from "@/lib/types";
+import { requireObject } from "@/lib/parsing";
 
 function requireField(
   obj: Record<string, unknown>,
@@ -13,15 +14,8 @@ function requireField(
   return value;
 }
 
-function asObject(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`Invalid object for ${label}`);
-  }
-  return value as Record<string, unknown>;
-}
-
 function asStop(value: unknown, index: number): Record<string, unknown> {
-  return asObject(value, `stops[${index}]`);
+  return requireObject(value, `stops[${index}]`);
 }
 
 function buildSegmentPayload(

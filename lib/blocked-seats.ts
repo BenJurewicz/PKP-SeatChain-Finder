@@ -1,9 +1,5 @@
 import type { SegmentsOutput, BlockedSeat } from "./types";
-
-function asObject(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
+import { asObject } from "@/lib/parsing";
 
 function parsePropertyReason(property: string): string {
   const normalized = property.toUpperCase();
