@@ -1,13 +1,10 @@
 import { findTrips } from "@/lib/trip-search";
-import type { Station } from "@/lib/station-search";
+import type { Station } from "@/lib/types";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
+import { errorResponse } from "@/app/api/_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function errorResponse(message: string, status = 400): Response {
-  return Response.json({ error: message }, { status });
-}
 
 interface TripSearchRequest {
   fromStation: Station;

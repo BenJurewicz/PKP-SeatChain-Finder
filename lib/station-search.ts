@@ -1,15 +1,6 @@
 import { getText } from "./http";
 import { BILKOM_STATION_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "./constants";
-
-export interface Station {
-  name: string;
-  extId: string;
-  id: string;
-  geoPoint?: {
-    lat: number;
-    lon: number;
-  };
-}
+import type { Station } from "./types";
 
 interface StationApiResponse {
   stations?: Array<{

@@ -5,13 +5,10 @@ import { buildTravelerViews } from "@/lib/instructions";
 import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
 import { buildSeatChainOutput } from "@/lib/seat-chain";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
+import { errorResponse } from "@/app/api/_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function errorResponse(message: string, status = 400): Response {
-  return Response.json({ error: message }, { status });
-}
 
 export async function POST(request: Request): Promise<Response> {
   try {

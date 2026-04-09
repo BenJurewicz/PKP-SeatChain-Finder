@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { MapPin, Loader2 } from "lucide-react";
-import type { Station } from "@/lib/station-search";
+import type { Station } from "@/lib/types";
 
 interface StationInputProps {
   value: Station | null;

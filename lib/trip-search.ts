@@ -1,6 +1,6 @@
 import { getText } from "./http";
 import { BILKOM_TRIP_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "./constants";
-import type { Station } from "./station-search";
+import type { Station } from "./types";
 
 export interface TripStop {
   stationId: string;

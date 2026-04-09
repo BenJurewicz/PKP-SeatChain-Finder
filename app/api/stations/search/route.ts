@@ -1,13 +1,10 @@
 import { searchStations } from "@/lib/station-search";
 import { DEFAULT_SEARCH_HEADERS } from "@/lib/constants";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
+import { errorResponse } from "@/app/api/_lib";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function errorResponse(message: string, status = 400): Response {
-  return Response.json({ error: message }, { status });
-}
 
 export async function GET(request: Request): Promise<Response> {
   try {
