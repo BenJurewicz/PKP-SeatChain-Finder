@@ -102,7 +102,12 @@ function normalizeSegments(data: SegmentsOutput): { segments: NormalizedSegment[
 
     const carriages = response.carriages;
     if (!Array.isArray(carriages)) {
-      throw new Error(`Invalid response.carriages in segment ${item.segmentIndex}`);
+      const responseKeys = Object.keys(response).join(', ');
+      console.warn(
+        `[seat-chain] Segment ${item.segmentIndex} has invalid or missing carriages.`,
+        `Response keys: [${responseKeys}].`,
+        'This segment will show no available seats.'
+      );
     }
 
     const stationFromName =
@@ -118,7 +123,7 @@ function normalizeSegments(data: SegmentsOutput): { segments: NormalizedSegment[
       stationToName,
       departureTime: item.departureTime,
       arrivalTime: item.arrivalTime,
-      carriages,
+      carriages: Array.isArray(carriages) ? carriages : [],
     });
   }
 
