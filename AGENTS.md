@@ -4,85 +4,63 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
----
+# Seat Chain Builder
 
-# Build & Run Commands
+Train seat-change planning tool. Upload HAR files or search connections to generate optimal seat assignment chains. Next.js 16.2.2 + React 19.2 + TypeScript + Tailwind CSS v4 + shadcn/ui.
 
-```bash
-pnpm install          # Install dependencies
-pnpm dev              # Start dev server (http://localhost:3000)
-pnpm build            # Production build
-pnpm start            # Run production build
-pnpm lint             # Run ESLint (run before committing)
-```
+## Commands
 
-# Key Conventions
+- `pnpm install` — Install dependencies
+- `pnpm dev` — Start dev server (http://localhost:3000)
+- `pnpm build` — Production build
+- `pnpm lint` — Run ESLint (run before committing)
+- Use `pnpm` not `npm` or `yarn`
 
-## Time Formatting
+## Critical Rules
 
-All times must use **Polish timezone (`Europe/Warsaw`)**:
-- Use `toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw" })` for display
-- Use `Intl.DateTimeFormat` with Polish timezone for conversions
-- **Never use `toISOString()` for display** - it returns UTC
+- Never use `toISOString()` for display — it returns UTC, not Polish time
+- Never show raw seat strings like `"10:103"` to users — always format as "Carriage 10, Seat 103"
+- Never expose `bilkom.pl` in error messages — use `getFriendlyErrorMessage()` from `lib/error-messages.ts`
+- Never use emoji characters in `.ts`/`.tsx`/`.js`/`.jsx` files — use lucide-react icons or SVGs from `/public/icons/`
+- Never use `changeSteps` indices for percentage calculations — use `assignments` array to count segments per seat
+- Count ALL seat transitions including `seat → null` and `null → seat`, not just `seat → seat`
 
-## Seat Display Format
+## Project Structure
 
-Seats are stored as `"carriage:seat"` (e.g., `"10:103"`):
-- Use `parseSeat()` from `lib/utils.ts` to split
-- Display as "**Carriage 10, Seat 103**" in UI
-- Never show raw "10:103" string to users
+- `lib/domain/` — Core business logic (seat-chain algorithm, trip/station search, Bilkom API client)
+- `lib/domain/bilkom.ts` — NOT exported from barrel file; import directly as `@/lib/domain/bilkom`
+- `lib/services/` — Client-side API service layer (api-client, api-error, stations, trips, segments, run)
+- `lib/parsing/` — HAR parsing and generic object parsing utilities
+- `lib/formatting/` — Time/date formatters (all use `Europe/Warsaw` timezone)
+- `lib/report/` — Static HTML report generation (separate component files in `components/` subfolder)
+- `lib/http.ts` — Low-level HTTP client with TLS-disabled fetch wrapper
+- `lib/error-messages.ts` — User-friendly error message mapper
+- `app/har/` — HAR upload flow page
+- `app/search/` — Direct connection search flow page
+- `app/api/` — API routes (`_lib/` has shared validation/error helpers)
 
-## Seat Changes Counting
+## Key Conventions
 
-Count **ALL transitions**, not just seat-to-seat:
-- `seat → seat` (changing seats)
-- `seat → null` (leaving a seat)
-- `null → seat` (taking a seat)
+### Time Formatting
+All times use `Europe/Warsaw` timezone. Use functions from `lib/formatting/time.ts` (`formatTime`, `formatDate`, `formatDuration`, `toPolishIsoString`). Never construct date strings manually.
 
-## Percentage Calculation
+### Seat Display
+Seats stored as `"carriage:seat"` (e.g., `"10:103"`). Parse with `parseSeat()` from `lib/utils/parse-seat.ts`. Display as "**Carriage 10, Seat 103**".
 
-Use `assignments` array to count segments per seat:
-```typescript
-const segmentCount = assignments.filter(a => a.assignedSeat === seatString).length;
-const percentage = Math.round((segmentCount / totalSegments) * 100);
-```
-**Do NOT use `changeSteps` indices** - that array only contains change points, not all segments.
-
-## No Emojis in Source Code
-
-**Never use emoji characters in source code.** Use icon components or SVGs instead:
-- Use shadcn/ui icon components (e.g., `lucide-react`) for UI icons
-- Use SVG files from `/public/icons/` for carrier/brand icons
-- Emoji characters (✅❌🚂etc.) must never appear in `.ts`, `.tsx`, `.js`, or `.jsx` files
-
-## Carrier Icons
-
+### Carrier Icons
 Map carrier IDs to `/public/icons/`:
 - `EIP` → `/icons/eip.svg`
 - `IC` → `/icons/ic.svg`
 - `TLK` → `/icons/tlk.svg`
 - Unknown → Fallback badge with colored pill
 
-## Error Messages
+### API Route Helpers
+Use `errorResponse()` and `successResponse()` from `app/api/_lib/error-response.ts` for all API route responses.
 
-**Never expose `bilkom.pl` in error messages.** Use `getFriendlyErrorMessage()` from `lib/error-messages.ts`:
-```typescript
-import { getFriendlyErrorMessage } from "@/lib/error-messages";
-// Returns user-friendly messages for network/HTTP errors
-```
+## Constraints
 
-# Important Constraints
-
-1. **TLS verification disabled** - Required for Bilkom API (self-signed certs)
-2. **Class 2 seats only** - Seat chain algorithm filters for CLASS_2
-3. **Direct connections only** - HAR flow doesn't support multi-leg journeys
-4. **No CORS** - All API calls are server-side
-5. **Polish timezone only** - All times must use `Europe/Warsaw`
-
-# Tech Stack
-
-- **Framework:** Next.js16.2.2 with App Router
-- **Styling:** Tailwind CSS v4
-- **UI Components:** shadcn/ui
-- **Language:** TypeScript
-- **Package Manager:** pnpm
+1. TLS verification disabled — required for Bilkom API (self-signed certs)
+2. Class 2 seats only — seat chain algorithm filters for `CLASS_2`
+3. Direct connections only — no multi-leg journey support
+4. All API calls are server-side — no CORS concerns
+5. All times must use `Europe/Warsaw` timezone
