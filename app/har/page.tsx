@@ -1,7 +1,6 @@
 "use client";
 
-import React, { FormEvent, useMemo, useState } from "react";
-import { isMultiChainOutput } from "@/lib/domain/seat-chain";
+import React, { FormEvent, useState } from "react";
 import { runHarFile } from "@/lib/services/run";
 import type { RunResponse } from "@/lib/services/run";
 import { Button } from "@/components/ui/button";
@@ -11,13 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { Loader2, AlertCircle, ChevronDown } from "lucide-react";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
-import { TripSummaryCard } from "@/components/results/TripSummaryCard";
-import { CollisionAlert } from "@/components/results/CollisionAlert";
-import { StatsCards } from "@/components/results/StatsCards";
-import { TravelerTimelines } from "@/components/results/TravelerTimelines";
-import { BlockedSeatsSection } from "@/components/blocked-seats-section";
-import { DetailedSegmentTable } from "@/components/results/DetailedSegmentTable";
-import { downloadReportHtml } from "@/lib/utils/download";
+import { ResultsView } from "@/components/results";
 
 export default function HarPage() {
   const [travelers, setTravelers] = useState(1);
@@ -25,14 +18,6 @@ export default function HarPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RunResponse | null>(null);
-
-  const hasCollisions = useMemo(() => {
-    if (!result) return false;
-    if (isMultiChainOutput(result.seatChain)) {
-      return result.seatChain.perSegmentTravelerAssignment.some((seg) => !seg.collisionFree);
-    }
-    return false;
-  }, [result]);
 
   async function handleHarSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -165,34 +150,16 @@ export default function HarPage() {
       )}
 
       {result && (
-        <>
-          <TripSummaryCard
-            tripInfo={result.tripInfo}
-            sourceHarName={result.sourceHarName}
-            showNewSearchButton={false}
-            onNewSearch={() => {}}
-            onDownload={() => downloadReportHtml(result.reportHtml)}
-          />
-
-          {hasCollisions && <CollisionAlert />}
-
-          <StatsCards
-            seatChain={result.seatChain}
-            travelers={isMultiChainOutput(result.seatChain) ? result.seatChain.summary.travelers : travelers}
-            onTravelersChange={setTravelers}
-            canRecalculate={false}
-            onRecalculate={() => {}}
-            isRecalculating={false}
-          />
-
-          <TravelerTimelines travelerViews={result.travelerViews} />
-
-          {result.blockedSeats && result.blockedSeats.length > 0 && (
-            <BlockedSeatsSection blockedSeats={result.blockedSeats} />
-          )}
-
-          <DetailedSegmentTable seatChain={result.seatChain} />
-        </>
+        <ResultsView
+          result={result}
+          travelers={travelers}
+          onTravelersChange={setTravelers}
+          showNewSearchButton={false}
+          onNewSearch={() => {}}
+          canRecalculate={false}
+          onRecalculate={() => {}}
+          isRecalculating={false}
+        />
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+export { ResultsView } from './ResultsView';
 export { TripSummaryCard } from './TripSummaryCard';
 export { CollisionAlert } from './CollisionAlert';
 export { StatsCards } from './StatsCards';
