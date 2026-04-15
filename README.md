@@ -22,13 +22,10 @@ This app solves that by:
 
 ## Example use case
 
-If you, like me, often book train tickets last minute, you might find this tool
-useful.
-
 You want to travel by train from city A to city G in **Poland**.
 You checked for available seats on typical websites and found none.
 
-The train you want to book goes through cities:
+The train you want to book goes through cities: \
 A -> B -> C -> D -> E -> F -> G
 
 Now you can use this project to solve your problem.
@@ -39,7 +36,7 @@ Enter the information about your journey:
 
 - departure station (city A)
 - departure date and time
-- destination station (city B)
+- destination station (city G)
 
 You will be presented with a list of trains matching your criteria.
 Pick your preferred train.
@@ -49,10 +46,11 @@ This app will go fetch all the data about available seats between each station p
 maximizes the amount of time you will have a seat and minimizes the amount of
 times you need to change seats.
 
-*For Example*:
-Seat 42 in carriage 10 is free from station A to station C.
-There is no free seats from station C to station D.
-Seat 21 in carriage 37 is free from station D to station G.
+*Example Seat Chain*:
+
+- Seat 42 in carriage 10 is free from station A to station C.
+- There is no free seats from station C to station D.
+- Seat 21 in carriage 37 is free from station D to station G.
 
 In addition this app will look for seats that will become available for booking.
 In Polish trains some of the seats are blocked and appear as if they were
@@ -61,7 +59,8 @@ clearly.
 This app will show you precisely what seat become available at what time.
 (Ex. Seat 73 in carriage 16 will be available on April 6 13:37)
 
-As you can imagine the seat chains become more useful if the journey is longer.
+If you, like me, often book train tickets last minute,
+you might find this tool useful.
 
 ## Getting Started
 
