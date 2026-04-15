@@ -53,7 +53,9 @@ async function requestText(
     timeout: timeoutMs,
   };
 
-  if (isHttps) {
+  const BILKOM_HOSTNAMES = ["bilkom.pl", "beta.bilkom.pl"];
+
+  if (isHttps && BILKOM_HOSTNAMES.some((h) => parsed.hostname === h)) {
     options.agent = new https.Agent({ rejectUnauthorized: false });
   }
 
