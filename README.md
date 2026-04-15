@@ -20,9 +20,48 @@ This app solves that by:
 - Showing temporarily blocked seats that will be available for booking
     shortly before tran departure, and the time when they become available.
 
-**Example:** A journey from Station A to Station J might have
-no single seat for all 9 segments. The app finds the best combination so
-passengers have a seat for the maximum duration with minimal changes.
+## Example use case
+
+If you, like me, often book train tickets last minute, you might find this tool
+useful.
+
+You want to travel by train from city A to city G in **Poland**.
+You checked for available seats on typical websites and found none.
+
+The train you want to book goes through cities:
+A -> B -> C -> D -> E -> F -> G
+
+Now you can use this project to solve your problem.
+
+Host it on your computer, go the landing page.
+
+Enter the information about your journey:
+
+- departure station (city A)
+- departure date and time
+- destination station (city B)
+
+You will be presented with a list of trains matching your criteria.
+Pick your preferred train.
+
+This app will go fetch all the data about available seats between each station pair
+(Ex. A->B, B->C and so on) and then try to find a chain of available seats that
+maximizes the amount of time you will have a seat and minimizes the amount of
+times you need to change seats.
+
+*For Example*:
+Seat 42 in carriage 10 is free from station A to station C.
+There is no free seats from station C to station D.
+Seat 21 in carriage 37 is free from station D to station G.
+
+In addition this app will look for seats that will become available for booking.
+In Polish trains some of the seats are blocked and appear as if they were
+taken, available interfaces for booking a seat do not show this information
+clearly.
+This app will show you precisely what seat become available at what time.
+(Ex. Seat 73 in carriage 16 will be available on April 6 13:37)
+
+As you can imagine the seat chains become more useful if the journey is longer.
 
 ## Getting Started
 
@@ -85,45 +124,9 @@ Manual search is recommended over this method.
 - **UI Components:** shadcn/ui
 - **Package Manager:** pnpm
 
-## Project Structure
-
-```
-webapp/
-├── app/
-│   ├── page.tsx              # Main UI with search flow
-│   ├── layout.tsx            # Root layout
-│   └── api/                  # API routes
-│       ├── stations/search/  # Station autocomplete
-│       ├── trips/search/    # Trip search
-│       └── segments/build/   # Seat data processing
-├── components/
-│   ├── file-upload.tsx
-│   ├── station-input.tsx
-│   ├── date-time-input.tsx
-│   ├── trip-list.tsx
-│   ├── coverage-progress.tsx
-│   ├── seat-timeline.tsx
-│   ├── train-carrier-icon.tsx
-│   ├── blocked-seats-section.tsx
-│   ├── number-stepper.tsx
-│   └── ui/                  # shadcn/ui components
-├── lib/
-│   ├── types.ts             # TypeScript type definitions
-│   ├── utils.ts             # Utility functions (cn, parseSeat)
-│   ├── constants.ts         # API URLs and configuration
-│   ├── http.ts              # HTTP client with TLS bypass
-│   ├── station-search.ts    # Station autocomplete API
-│   ├── trip-search.ts       # Trip search and HTML parsing
-│   ├── seat-chain.ts        # Seat chain algorithm
-│   ├── blocked-seats.ts     # Blocked seat extraction
-│   └── error-messages.ts    # User-friendly error handling
-└── public/icons/            # Carrier logos (EIP, IC, TLK)
-```
-
 ## Development Notes
 
 - All times use Polish timezone (`Europe/Warsaw`)
 - Seat data uses format `"carriage:seat"` (e.g., `"10:103"`)
 - API calls are server-side (no CORS issues)
 - TLS verification is disabled for Bilkom API compatibility
-
