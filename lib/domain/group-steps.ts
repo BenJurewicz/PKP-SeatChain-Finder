@@ -43,6 +43,27 @@ export function groupConsecutiveSteps(
   const groups: GroupedStep[] = [];
   let currentGroup: GroupedStep | null = null;
   let currentSeatString: string | null = null;
+
+  // changeSteps mark the boundary of every consecutive run of equal seat
+  // assignments, so each step corresponds to one run. Count run lengths in
+  // order (a seat may appear in several runs separated by gaps — counting
+  // via filter() would inflate every group sharing that seat).
+  const runLengths: number[] = [];
+  if (assignments.length > 0) {
+    let runSeat: string | null = assignments[0].assignedSeat;
+    let runLen = 0;
+    for (const a of assignments) {
+      if (a.assignedSeat === runSeat) {
+        runLen += 1;
+      } else {
+        runLengths.push(runLen);
+        runSeat = a.assignedSeat;
+        runLen = 1;
+      }
+    }
+    runLengths.push(runLen);
+  }
+  let runIndex = 0;
   
   for (const step of changeSteps) {
     const seatString = step.seat;
@@ -67,9 +88,10 @@ export function groupConsecutiveSteps(
       // Different seat - finalize current group and start new one
       
       // Count segments for the previous seat
-      currentGroup.segmentCount = assignments.filter(
+      currentGroup.segmentCount = runLengths[runIndex] ?? assignments.filter(
         a => a.assignedSeat === currentSeatString
       ).length;
+      runIndex += 1;
       groups.push(currentGroup);
       
       // Start new group
@@ -87,7 +109,7 @@ export function groupConsecutiveSteps(
   
   // Finalize the last group
   if (currentGroup) {
-    currentGroup.segmentCount = assignments.filter(
+    currentGroup.segmentCount = runLengths[runIndex] ?? assignments.filter(
       a => a.assignedSeat === currentSeatString
     ).length;
     groups.push(currentGroup);

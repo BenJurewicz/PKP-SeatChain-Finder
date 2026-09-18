@@ -23,6 +23,7 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     if (value) {
@@ -81,6 +82,7 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
   };
 
   const handleSelect = (station: Station) => {
+    justSelectedRef.current = true;
     setQuery(station.name);
     setStations([]);
     setIsOpen(false);
@@ -93,6 +95,12 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
     }
     
     setTimeout(() => {
+      // A suggestion click blurs the input before its click handler runs;
+      // never let this deferred blur logic override an explicit selection.
+      if (justSelectedRef.current) {
+        justSelectedRef.current = false;
+        return;
+      }
       if (stations.length > 0 && !value) {
         const topSuggestion = stations[0];
         const matchesQuery = query.toLowerCase().trim() === topSuggestion.name.toLowerCase().trim();
@@ -139,6 +147,7 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
             <button
               key={station.extId}
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-2 text-sm text-left",
                 "hover:bg-accent focus:bg-accent focus:outline-none"
