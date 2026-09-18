@@ -1,5 +1,5 @@
 import { apiClient } from './api-client';
-import type { BlockedSeat } from '@/lib/types';
+import type { SeatRelease } from '@/lib/types';
 import type { SeatChainOutput } from '@/lib/seat-chain';
 import type { TravelerView } from '@/lib/instructions';
 
@@ -18,7 +18,7 @@ export interface RunResponse {
   travelerViews: TravelerView[];
   reportHtml: string;
   sourceHarName: string;
-  blockedSeats?: BlockedSeat[];
+  seatReleases?: SeatRelease[];
   tripInfo?: TripInfo;
 }
 

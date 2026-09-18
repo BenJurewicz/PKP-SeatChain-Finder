@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { forwardRef } from "react";
+import { toPolishIsoString } from "@/lib/formatting";
 
 interface DateTimeInputProps {
   date?: string;
@@ -13,8 +14,7 @@ interface DateTimeInputProps {
 
 export const DateTimeInput = forwardRef<HTMLDivElement, DateTimeInputProps>(
   function DateTimeInput({ date, time, onDateChange, onTimeChange, disabled }, ref) {
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
+    const todayStr = toPolishIsoString(new Date()).split("T")[0];
 
     return (
       <div ref={ref} className="grid grid-cols-2 gap-3">

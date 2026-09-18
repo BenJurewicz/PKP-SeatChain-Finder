@@ -3,6 +3,7 @@
 import { SpecialSeatProperty, SPECIAL_SEAT_LABELS, SpecialSeatFilters } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 import { useMemo } from "react";
 
 interface SpecialSeatsFilterProps {
@@ -35,9 +36,13 @@ export function SpecialSeatsFilter({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm font-medium">Special Seats</span>
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Special seat types</span>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Include seats reserved for specific passenger groups in the search.
+      </p>
       <div className="space-y-2">
         {sortedProperties.map((property) => (
           <div key={property} className="flex items-start space-x-2">

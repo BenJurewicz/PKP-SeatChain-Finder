@@ -70,13 +70,26 @@ export interface Trip {
   segmentRequest: JsonObject;
 }
 
-export interface BlockedSeat {
+/**
+ * A seat that is currently RESERVED or BLOCKED but whose special restriction
+ * (e.g. politician, person with child) expires at `validTo`, after which the
+ * seat becomes bookable by anyone.
+ */
+export interface SeatRelease {
   seatNumber: number;
   carriageNumber: number;
   trainClass: "CLASS_1" | "CLASS_2";
   position: "AISLE" | "MIDDLE" | "WINDOW";
+  /** Human-readable reason the seat is currently unavailable. */
   reason: string;
+  /** Raw special property from the API (e.g. "POLITICIAN"). */
+  specialProperty: string;
+  /** Current spot status in the API (RESERVED or BLOCKED). */
+  status: "RESERVED" | "BLOCKED";
+  /** When the special restriction expires (Warsaw-local ISO string). */
   validTo: string;
+  /** True when the seat frees up before the journey departs. */
+  availableBeforeDeparture: boolean;
   firstSegmentIndex: number;
   lastSegmentIndex: number;
   firstStationName?: string;

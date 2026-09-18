@@ -1,5 +1,5 @@
 import { buildSegmentsOutput } from "@/lib/bilkom";
-import { extractBlockedSeats } from "@/lib/blocked-seats";
+import { extractReleasingSeats } from "@/lib/blocked-seats";
 import { parseHarRequestConfig } from "@/lib/har";
 import { buildTravelerViews } from "@/lib/instructions";
 import { generateStaticReportHtml, type TripSummary } from "@/lib/report";
@@ -30,10 +30,18 @@ export async function POST(request: Request): Promise<Response> {
     const harText = await harFile.text();
     const config = parseHarRequestConfig(harText);
     const segmentsOutput = await buildSegmentsOutput(config);
-    const seatChain = buildSeatChainOutput(segmentsOutput, travelers);
-    const travelerViews = buildTravelerViews(seatChain);
-    const blockedSeats = extractBlockedSeats(segmentsOutput);
     const detectedSpecialProperties = Array.from(detectSpecialSeatProperties(segmentsOutput));
+
+    // Apply the initial special-seat filter state (all excluded) here too, so
+    // the HAR pipeline matches the search pipeline and any later
+    // recalculation — seats with special properties are not offered by default.
+    const initialFilters: Record<string, boolean> = {};
+    for (const prop of detectedSpecialProperties) {
+      initialFilters[prop] = false;
+    }
+    const seatChain = buildSeatChainOutput(segmentsOutput, travelers, initialFilters);
+    const travelerViews = buildTravelerViews(seatChain);
+    const seatReleases = extractReleasingSeats(segmentsOutput);
 
     const firstSegment = segmentsOutput.segments[0];
     const lastSegment = segmentsOutput.segments[segmentsOutput.segments.length - 1];
@@ -73,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
         arrivalTime: tripSummary.arrivalTime,
         duration: tripSummary.duration,
       },
-      blockedSeats,
+      seatReleases,
     });
   } catch (error) {
     return errorResponse(getFriendlyErrorMessage(error), 500);

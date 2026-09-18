@@ -2,15 +2,22 @@
 
 import type { InstructionStep } from "@/lib/instructions";
 import type { PerSegmentAssignment } from "@/lib/seat-chain";
-import { MapPin } from "lucide-react";
+import { MapPin, ArrowRight, Armchair } from "lucide-react";
 import { formatTime } from "@/lib/formatting";
 import { groupConsecutiveSteps } from "@/lib/domain/group-steps";
+import { cn } from "@/lib/utils";
 
 interface SeatTimelineProps {
   travelerIndex: number;
   changeSteps: InstructionStep[];
   totalSegments: number;
   assignments: PerSegmentAssignment[];
+}
+
+function seatLabel(carriage: string | null, seat: string | null) {
+  if (seat === null) return null;
+  if (carriage === null) return `Seat ${seat}`;
+  return `Carriage ${carriage}, Seat ${seat}`;
 }
 
 export function SeatTimeline({
@@ -22,117 +29,126 @@ export function SeatTimeline({
   const groups = groupConsecutiveSteps(changeSteps, assignments);
 
   return (
-    <div className="rounded-lg border bg-card">
-      <div className="border-b px-4 py-3">
-        <h3 className="font-semibold">Traveler {travelerIndex}</h3>
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <h3 className="flex items-center gap-2 font-semibold">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+            {travelerIndex}
+          </span>
+          Traveler {travelerIndex}
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          {assignments.length} {assignments.length === 1 ? "segment" : "segments"}
+        </span>
       </div>
 
-      {/* Desktop: Horizontal timeline */}
-      <div className="hidden md:block overflow-x-auto p-4">
-        <div className="flex items-stretch gap-0 min-w-max">
+      {/* Desktop: horizontal timeline */}
+      <div className="hidden overflow-x-auto p-4 md:block">
+        <ol className="flex min-w-max items-stretch">
           {groups.map((group, idx) => {
-            const segmentCount = group.segmentCount;
-            const percentage = Math.round((segmentCount / totalSegments) * 100);
+            const percentage = Math.round((group.segmentCount / totalSegments) * 100);
             const timeStr = group.arrivalTime ? formatTime(group.arrivalTime) : null;
             const isFirst = idx === 0;
+            const noSeat = group.seat === null;
 
             return (
-              <div key={idx} className="flex items-stretch">
-                <div className="flex flex-col rounded-lg border p-3 min-w-[140px] bg-card">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
-                    <MapPin className="h-3 w-3" />
-                    <span className="truncate">{group.station}</span>
+              <li key={idx} className="flex items-stretch">
+                <div
+                  className={cn(
+                    "flex w-[170px] flex-col rounded-lg border p-3",
+                    noSeat ? "border-dashed bg-muted/40" : "bg-background"
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate" title={group.station}>
+                      {group.station}
+                    </span>
                   </div>
                   {timeStr && (
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {isFirst ? "Dep:" : "Arr:"} {timeStr}
+                    <div className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                      {isFirst ? "Dep" : "Arr"} {timeStr}
                     </div>
                   )}
-                  <div className="text-sm">
-                  {group.seat === null ? (
-                    <span className="text-muted-foreground">No seat available</span>
-                  ) : (
-                    <>
-                      <span className="font-medium">Carriage</span>{" "}
-                      {group.carriage}, <span className="font-medium">Seat</span>{" "}
-                      {group.seat}
-                    </>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {segmentCount} {segmentCount === 1 ? "segment" : "segments"} ({percentage}
-                  %)
-                </div>
+                  <div
+                    className={cn(
+                      "mt-2 flex items-start gap-1.5 text-sm font-medium",
+                      noSeat && "text-muted-foreground"
+                    )}
+                  >
+                    {noSeat ? (
+                      <span className="flex items-center gap-1.5 italic">
+                        <Armchair className="h-3.5 w-3.5 flex-shrink-0" />
+                        No seat
+                      </span>
+                    ) : (
+                      <Armchair className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    )}
+                    <span>{seatLabel(group.carriage, group.seat)}</span>
+                  </div>
+                  <div className="mt-auto pt-2 text-xs text-muted-foreground">
+                    {group.segmentCount} {group.segmentCount === 1 ? "segment" : "segments"}{" "}
+                    ({percentage}%)
+                  </div>
                 </div>
                 {idx < groups.length - 1 && (
-                  <div className="flex items-center px-1">
-                    <svg
-                      className="h-4 w-4 text-muted-foreground"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        d="M5 12H19M19 12L12 5M19 12L12 19"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  <div className="flex items-center px-1.5 text-muted-foreground" aria-hidden="true">
+                    <ArrowRight className="h-4 w-4" />
                   </div>
                 )}
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </div>
 
-      {/* Mobile: Vertical cards */}
-      <div className="md:hidden divide-y">
+      {/* Mobile: vertical cards */}
+      <ol className="relative divide-y md:hidden">
         {groups.map((group, idx) => {
-          const segmentCount = group.segmentCount;
-          const percentage = Math.round((segmentCount / totalSegments) * 100);
+          const percentage = Math.round((group.segmentCount / totalSegments) * 100);
           const timeStr = group.arrivalTime ? formatTime(group.arrivalTime) : null;
           const isFirst = idx === 0;
+          const noSeat = group.seat === null;
 
           return (
-            <div key={idx} className="p-4 space-y-2">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span className="font-medium">{group.station}</span>
-                  </div>
-                  {timeStr && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {isFirst ? "Dep:" : "Arr:"} {timeStr}
-                    </div>
+            <li key={idx} className="flex gap-3 p-4">
+              <div className="flex flex-col items-center pt-1" aria-hidden="true">
+                <span
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full",
+                    noSeat ? "border border-muted-foreground bg-transparent" : "bg-primary"
                   )}
-                </div>
-                <div className="flex flex-col items-end">
-                  <div className="text-xs text-muted-foreground">
-                    {segmentCount} {segmentCount === 1 ? "segment" : "segments"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {percentage}%
-                  </div>
-                </div>
-              </div>
-              <div className="text-sm">
-                {group.seat === null ? (
-                  <span className="text-muted-foreground">No seat available</span>
-                ) : (
-                  <>
-                    <span className="font-medium">Carriage</span>{" "}
-                    {group.carriage}, <span className="font-medium">Seat</span>{" "}
-                    {group.seat}
-                  </>
+                />
+                {idx < groups.length - 1 && (
+                  <span className="mt-1 w-px flex-1 bg-border" />
                 )}
               </div>
-            </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium">{group.station}</span>
+                  {timeStr && (
+                    <span className="flex-shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {isFirst ? "Dep" : "Arr"} {timeStr}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    "mt-1 text-sm font-medium",
+                    noSeat && "font-normal italic text-muted-foreground"
+                  )}
+                >
+                  {noSeat ? "No seat available" : seatLabel(group.carriage, group.seat)}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {group.segmentCount} {group.segmentCount === 1 ? "segment" : "segments"} (
+                  {percentage}%)
+                </div>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }

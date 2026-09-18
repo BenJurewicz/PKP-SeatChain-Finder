@@ -14,9 +14,9 @@ const CARRIER_ICONS: Record<string, string> = {
 };
 
 const CARRIER_COLORS: Record<string, string> = {
-  EIP: "bg-blue-50 text-blue-900 border-blue-200",
-  IC: "bg-orange-50 text-orange-900 border-orange-200",
-  TLK: "bg-emerald-50 text-emerald-900 border-emerald-200",
+  EIP: "bg-blue-500/15 text-blue-600 border-blue-500/40 dark:text-blue-300",
+  IC: "bg-orange-500/15 text-orange-600 border-orange-500/40 dark:text-orange-300",
+  TLK: "bg-emerald-500/15 text-emerald-600 border-emerald-500/40 dark:text-emerald-300",
 };
 
 const CARRIER_NAMES: Record<string, string> = {
@@ -44,7 +44,7 @@ export function TrainCarrierIcon({ carrierId, className }: TrainCarrierIconProps
     <span
       className={cn(
         "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold",
-        colorClasses || "bg-gray-100 text-gray-800 border-gray-200",
+        colorClasses || "bg-muted text-foreground border-border",
         className
       )}
       title={CARRIER_NAMES[upperCarrierId] || upperCarrierId}

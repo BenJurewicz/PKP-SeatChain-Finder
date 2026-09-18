@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Seat Chain Builder",
-  description: "Upload a HAR and generate seat-change plans.",
+  title: "Seat Finder — PKP train seats",
+  description:
+    "Find and secure seats on PKP trains, including seats that free up before departure.",
 };
 
 export default function RootLayout({

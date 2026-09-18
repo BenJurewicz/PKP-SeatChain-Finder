@@ -3,35 +3,26 @@
 import React, { FormEvent, useMemo, useState } from "react";
 import type { TravelerView } from "@/lib/instructions";
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
-import type { Station, Trip, BlockedSeat, SegmentsOutput, SpecialSeatProperty, SpecialSeatFilters } from "@/lib/types";
+import type { Station, Trip, SeatRelease, SegmentsOutput, SpecialSeatProperty, SpecialSeatFilters } from "@/lib/types";
 import type { TripSummary } from "@/lib/report";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { FileUpload } from "@/components/file-upload";
 import { StationInput } from "@/components/station-input";
 import { DateTimeInput } from "@/components/date-time-input";
 import { TripList } from "@/components/trip-list";
-import { CoverageProgress } from "@/components/coverage-progress";
 import { SeatTimeline } from "@/components/seat-timeline";
-import { TrainCarrierIcon } from "@/components/train-carrier-icon";
-import { BlockedSeatsSection } from "@/components/blocked-seats-section";
-import { SpecialSeatsFilter } from "@/components/special-seats-filter";
-import { NumberStepper } from "@/components/number-stepper";
-import { Loader2, Download, AlertCircle, CheckCircle2, XCircle, Train, Users, Search, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
-import { parseSeat } from "@/lib/utils";
+import { SeatReleasesSection } from "@/components/seat-releases-section";
+import { ModeSwitch } from "@/components/mode-switch";
+import { TripHeaderCard } from "@/components/trip-header-card";
+import { ResultsSummary } from "@/components/results-summary";
+import { DetailedSegmentsCard } from "@/components/detailed-segments-card";
+import { HarInstructions } from "@/components/har-instructions";
+import { Train, Loader2, AlertCircle, Search, ArrowRight } from "lucide-react";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
-import { formatTime, formatDate, formatDuration } from "@/lib/formatting";
+import { toPolishIsoString } from "@/lib/formatting";
 import { detectSpecialSeatProperties } from "@/lib/seat-chain";
 
 type RunResponse = {
@@ -41,7 +32,7 @@ type RunResponse = {
     sourceHarName: string;
     segmentsData?: SegmentsOutput;
     detectedSpecialProperties?: SpecialSeatProperty[];
-    blockedSeats?: BlockedSeat[];
+    seatReleases?: SeatRelease[];
     tripInfo?: {
         trainName: string;
         carrierId: string;
@@ -66,10 +57,37 @@ function downloadReportHtml(html: string): void {
 }
 
 function getDefaultDateTime(): { date: string; time: string } {
-    const now = new Date();
-    const date = now.toISOString().split("T")[0];
-    const time = now.toTimeString().slice(0, 5);
-    return { date, time };
+    // Warsaw-local "now", not UTC — toISOString/toTimeString ignore Europe/Warsaw.
+    const polish = toPolishIsoString(new Date());
+    const [date, time] = polish.split("T");
+    return { date, time: time.slice(0, 5) };
+}
+
+function ResultsLoadingSkeleton() {
+    return (
+        <>
+            <Card className="py-0">
+                <CardContent className="py-6">
+                    <Skeleton className="h-6 w-40" />
+                    <Skeleton className="mt-3 h-4 w-64" />
+                </CardContent>
+            </Card>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                    <Card key={i} className="py-0">
+                        <CardContent className="py-6">
+                            <Skeleton className="h-16 w-full" />
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+            <Card className="py-0">
+                <CardContent className="py-6">
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
+        </>
+    );
 }
 
 export default function Home() {
@@ -88,6 +106,7 @@ export default function Home() {
     const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     const [searchStep, setSearchStep] = useState<"stations" | "trips" | "results">("stations");
     const [showDetailedView, setShowDetailedView] = useState(false);
+    const [harInstructionsOpen, setHarInstructionsOpen] = useState(false);
 
     const [segmentsData, setSegmentsData] = useState<SegmentsOutput | null>(null);
     const [detectedProperties, setDetectedProperties] = useState<SpecialSeatProperty[]>([]);
@@ -167,7 +186,7 @@ export default function Home() {
             if (!data.seatChain || !data.travelerViews || !data.reportHtml || !data.sourceHarName) {
                 throw new Error("Invalid API response");
             }
-            
+
             setResult({
                 seatChain: data.seatChain,
                 travelerViews: data.travelerViews,
@@ -176,7 +195,7 @@ export default function Home() {
                 segmentsData: data.segmentsData,
                 detectedSpecialProperties: data.detectedSpecialProperties,
                 tripInfo: data.tripInfo,
-                blockedSeats: data.blockedSeats,
+                seatReleases: data.seatReleases,
             });
 
             if (data.segmentsData) {
@@ -238,6 +257,7 @@ export default function Home() {
     }
 
     async function handleSelectTrip(trip: Trip): Promise<void> {
+        if (loading) return; // ignore rapid double-clicks on a trip card
         setSelectedTrip(trip);
         setLoading(true);
         setError(null);
@@ -259,13 +279,22 @@ export default function Home() {
             const { buildSeatChainOutput } = await import("@/lib/seat-chain");
             const { buildTravelerViews } = await import("@/lib/instructions");
             const { generateStaticReportHtml } = await import("@/lib/report");
-            const { extractBlockedSeats } = await import("@/lib/blocked-seats");
-            const { detectSpecialSeatProperties } = await import("@/lib/seat-chain");
+            const { extractReleasingSeats } = await import("@/lib/blocked-seats");
 
-            const seatChain = buildSeatChainOutput(segmentsData, travelers);
-            const travelerViews = buildTravelerViews(seatChain);
-            const blockedSeats = extractBlockedSeats(segmentsData);
+            // Apply the initial special-seat filter state (all excluded) to the
+            // very first calculation too — otherwise seats carrying special
+            // properties (e.g. wheelchair/handicapped spots) would appear in the
+            // chain here but vanish the moment any recalculation applies the
+            // filters, making seats the user saw assigned suddenly disappear.
             const detected = Array.from(detectSpecialSeatProperties(segmentsData));
+            const initialFilterState: SpecialSeatFilters = {};
+            for (const prop of detected) {
+                initialFilterState[prop] = false;
+            }
+
+            const seatChain = buildSeatChainOutput(segmentsData, travelers, initialFilterState);
+            const travelerViews = buildTravelerViews(seatChain);
+            const seatReleases = extractReleasingSeats(segmentsData);
 
             const tripSummary: TripSummary = {
                 trainName: trip.trainName,
@@ -286,7 +315,7 @@ export default function Home() {
                 sourceHarName: `${trip.trainName} (${trip.departure.stationName} → ${trip.arrival.stationName})`,
                 segmentsData,
                 detectedSpecialProperties: detected,
-                blockedSeats,
+                seatReleases,
                 tripInfo: {
                     trainName: trip.trainName,
                     carrierId: trip.carrierId,
@@ -300,10 +329,6 @@ export default function Home() {
 
             setSegmentsData(segmentsData);
             setDetectedProperties(detected);
-            const initialFilterState: SpecialSeatFilters = {};
-            for (const prop of detected) {
-                initialFilterState[prop] = false;
-            }
             setSpecialFilters(initialFilterState);
             setInitialFilters(initialFilterState);
             setSearchStep("results");
@@ -316,23 +341,23 @@ export default function Home() {
 
     async function handleRecalculate(): Promise<void> {
         if (!segmentsData) return;
-        
+
         setLoading(true);
         setError(null);
-        
+
         try {
             const { buildSeatChainOutput } = await import("@/lib/seat-chain");
             const { buildTravelerViews } = await import("@/lib/instructions");
-            
+
             const seatChain = buildSeatChainOutput(segmentsData, travelers, specialFilters);
             const travelerViews = buildTravelerViews(seatChain);
-            
+
             setResult(prev => prev ? {
                 ...prev,
                 seatChain,
                 travelerViews,
             } : null);
-            
+
             setInitialFilters(specialFilters);
         } catch (recalcError) {
             setError(getFriendlyErrorMessage(recalcError));
@@ -341,124 +366,67 @@ export default function Home() {
         }
     }
 
-    return (
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 md:px-6">
-            <div className="text-center mb-4">
-                <div className="flex items-center justify-center gap-3 mb-3">
-                    <Train className="h-10 w-10" />
-                    <h1 className="text-4xl font-bold">Seat Chain Builder</h1>
-                </div>
-                <p className="text-muted-foreground text-lg">Find optimal seat arrangements for your train journey</p>
-            </div>
+    const multiChain = result ? isMultiChainOutput(result.seatChain) : false;
+    const stepperTravelers = result
+        ? (isMultiChainOutput(result.seatChain)
+              ? result.seatChain.summary.travelers
+              : travelers)
+        : travelers;
 
-            <Card>
-                <CardHeader className="pb-3">
-                    <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setMode("search");
-                                resetSearch();
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === "search"
-                                ? "bg-background text-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                                }`}
-                        >
-                            <Search className="h-4 w-4" />
-                            Search Connections
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setMode("har");
-                                setResult(null);
-                                setError(null);
-                                setSegmentsData(null);
-                                setDetectedProperties([]);
-                                setSpecialFilters({});
-                                setInitialFilters({});
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === "har"
-                                ? "bg-background text-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                                }`}
-                        >
-                            <Upload className="h-4 w-4" />
-                            Upload HAR File
-                        </button>
-                    </div>
-                </CardHeader>
-                <CardContent>
+    return (
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 md:px-6 md:py-10">
+            <header className="text-center">
+                <div className="mb-2 flex items-center justify-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                        <Train className="h-6 w-6" />
+                    </span>
+                    <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+                        Seat Finder
+                    </h1>
+                </div>
+                <p className="text-muted-foreground">
+                    Get a seat on PKP trains — even when none are bookable outright.
+                </p>
+            </header>
+
+            <Card className="py-0">
+                <CardContent className="grid gap-5 py-6">
+                    <ModeSwitch
+                        mode={mode}
+                        onChange={(next) => {
+                            setMode(next);
+                            resetSearch();
+                        }}
+                        disabled={loading}
+                    />
+
                     {mode === "har" ? (
                         <form className="grid gap-4" onSubmit={handleHarSubmit}>
-                            <details className="group">
-                                <summary className="cursor-pointer p-4 bg-muted rounded-lg font-medium flex items-center justify-between list-none marker:content-['']">
-                                    <span>📋 How to get the HAR file</span>
-                                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                                </summary>
-                                <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm">
-                                    <ol className="list-decimal list-inside space-y-2">
-                                        <li>
-                                            Go to{" "}
-                                            <a href="https://bilkom.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                                                bilkom.pl
-                                            </a>
-                                        </li>
-                                        <li>Find and select your desired train</li>
-                                        <li className="text-amber-600 flex items-center gap-1">
-                                            <AlertTriangle className="h-4 w-4" />
-                                            Only direct connections are supported
-                                        </li>
-                                        <li>
-                                            Click{" "}
-                                            <span className="font-semibold text-primary">Buy Ticket</span> to proceed
-                                        </li>
-                                        <li>
-                                            Open browser{" "}
-                                            <span className="font-semibold text-primary">Dev Tools</span>{" "}
-                                            (<kbd className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">F12</kbd>) →{" "}
-                                            <span className="font-semibold text-primary">Network</span> tab
-                                        </li>
-                                        <li>Scroll to bottom, select &ldquo;I choose a seat from a schematic&rdquo;</li>
-                                        <li>
-                                            Click the{" "}
-                                            <span className="font-semibold text-primary">Class 2</span> button
-                                        </li>
-                                        <li>
-                                            In <span className="font-semibold text-primary">Network</span> tab, find request named{" "}
-                                            <span className="font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs">grm</span>{" "}
-                                            (type: JSON)
-                                        </li>
-                                        <li>
-                                            Right-click → &ldquo;Save all as HAR&rdquo;
-                                        </li>
-                                        <li>
-                                            Upload the saved{" "}
-                                            <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">.har</code> file here
-                                        </li>
-                                    </ol>
-                                </div>
-                            </details>
+                            <HarInstructions
+                                open={harInstructionsOpen}
+                                onOpenChange={setHarInstructionsOpen}
+                            />
                             <FileUpload
                                 onChange={setHarFile}
                                 accept=".har,application/json"
                                 disabled={loading}
                             />
-                            <div className="flex items-end">
-                                <Button type="submit" disabled={loading} className="w-full md:w-auto">
-                                    {loading ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Running...
-                                        </>
-                                    ) : (
-                                        "Build seat chains"
-                                    )}
-                                </Button>
-                            </div>
+                            <Button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full sm:w-auto sm:justify-self-start"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Running…
+                                    </>
+                                ) : (
+                                    "Build seat chains"
+                                )}
+                            </Button>
                             {error ? (
-                                <Alert variant="destructive" className="mt-4">
+                                <Alert variant="destructive">
                                     <AlertCircle className="h-4 w-4" />
                                     <AlertDescription>{error}</AlertDescription>
                                 </Alert>
@@ -468,22 +436,36 @@ export default function Home() {
                         <div className="grid gap-6">
                             {searchStep === "stations" && (
                                 <>
-                                    <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="grid items-end gap-4 md:grid-cols-[1fr_auto_1fr]">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Departure Station</label>
+                                            <label
+                                                htmlFor="from-station"
+                                                className="text-sm font-medium"
+                                            >
+                                                From
+                                            </label>
                                             <StationInput
                                                 value={fromStation}
                                                 onChange={setFromStation}
-                                                placeholder="Enter departure station..."
+                                                placeholder="Departure station…"
                                                 disabled={loading}
                                             />
                                         </div>
+                                        <ArrowRight
+                                            className="hidden mx-auto h-4 w-4 text-muted-foreground md:mb-2.5 md:block"
+                                            aria-hidden="true"
+                                        />
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Destination Station</label>
+                                            <label
+                                                htmlFor="to-station"
+                                                className="text-sm font-medium"
+                                            >
+                                                To
+                                            </label>
                                             <StationInput
                                                 value={toStation}
                                                 onChange={setToStation}
-                                                placeholder="Enter destination station..."
+                                                placeholder="Destination station…"
                                                 disabled={loading}
                                             />
                                         </div>
@@ -501,17 +483,17 @@ export default function Home() {
                                         type="button"
                                         onClick={handleSearchTrips}
                                         disabled={loading || !fromStation || !toStation}
-                                        className="w-full md:w-auto"
+                                        className="w-full sm:w-auto sm:justify-self-start"
                                     >
                                         {loading ? (
                                             <>
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Searching...
+                                                Searching…
                                             </>
                                         ) : (
                                             <>
                                                 <Search className="mr-2 h-4 w-4" />
-                                                Search Trips
+                                                Search trips
                                             </>
                                         )}
                                     </Button>
@@ -527,24 +509,27 @@ export default function Home() {
 
                             {searchStep === "trips" && !result && (
                                 <>
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="font-semibold text-lg">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-lg font-semibold">
                                                 {fromStation?.name} → {toStation?.name}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                {tripDate} at {tripTime} • {trips.length} trips found
+                                                {tripDate} at {tripTime} ·{" "}
+                                                {loading
+                                                    ? "Searching…"
+                                                    : `${trips.length} ${trips.length === 1 ? "trip" : "trips"} found`}
                                             </p>
                                         </div>
                                         <Button variant="outline" size="sm" onClick={resetSearch}>
-                                            New Search
+                                            New search
                                         </Button>
                                     </div>
 
                                     {loading ? (
                                         <div className="space-y-3">
                                             {[1, 2, 3].map((i) => (
-                                                <Card key={i}>
+                                                <Card key={i} className="py-0">
                                                     <CardContent className="py-4">
                                                         <Skeleton className="h-20 w-full" />
                                                     </CardContent>
@@ -573,185 +558,58 @@ export default function Home() {
                 </CardContent>
             </Card>
 
-            {loading && !result && mode === "har" ? (
-                <>
-                    <Card>
-                        <CardHeader>
-                            <Skeleton className="h-6 w-32" />
-                            <Skeleton className="h-4 w-48 mt-2" />
-                        </CardHeader>
-                        <CardContent>
-                            <Skeleton className="h-10 w-48" />
-                        </CardContent>
-                    </Card>
+            {loading && !result && mode === "har" ? <ResultsLoadingSkeleton /> : null}
 
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-                        {[1, 2, 3].map((i) => (
-                            <Card key={i}>
-                                <CardContent className="py-6">
-                                    <Skeleton className="h-16 w-full" />
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-
-                    <Card>
-                        <CardContent className="py-6">
-                            <Skeleton className="h-48 w-full" />
-                        </CardContent>
-                    </Card>
-                </>
-            ) : null}
-
-            {result ? (
-                <>
-                    <Card>
-                        <CardContent className="py-4">
-                            <div className="flex items-start justify-between flex-wrap gap-4">
-                                <div className="flex items-start gap-3">
-                                    {result.tripInfo ? (
-                                        <TrainCarrierIcon carrierId={result.tripInfo.carrierId} className="h-8 w-auto" />
-                                    ) : (
-                                        <Train className="h-8 w-8 text-muted-foreground" />
-                                    )}
-                                    <div>
-                                        <div className="font-bold text-lg">
-                                            {result.tripInfo?.trainName ?? "Unknown Train"}
-                                        </div>
-                                        <div className="text-sm text-muted-foreground">
-                                            {result.tripInfo?.departureStation ?? "Unknown"} → {result.tripInfo?.arrivalStation ?? "Unknown"}
-                                        </div>
-                                        {result.tripInfo && (
-                                            <div className="text-xs text-muted-foreground mt-1">
-                                                {formatDuration(result.tripInfo.duration)}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-6">
-                                    {result.tripInfo && (
-                                        <>
-                                            <div className="text-right">
-                                                <div className="text-sm font-semibold">{formatTime(result.tripInfo.departureTime)}</div>
-                                                <div className="text-xs text-muted-foreground">{formatDate(result.tripInfo.departureTime)}</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-sm font-semibold">{formatTime(result.tripInfo.arrivalTime)}</div>
-                                                <div className="text-xs text-muted-foreground">{formatDate(result.tripInfo.arrivalTime)}</div>
-                                            </div>
-                                        </>
-                                    )}
-                                    <div className="flex gap-2">
-                                        {mode === "search" && searchStep === "results" && (
-                                            <Button variant="outline" size="sm" onClick={resetSearch}>
-                                                New Search
-                                            </Button>
-                                        )}
-                                        <Button variant="outline" size="sm" onClick={() => downloadReportHtml(result.reportHtml)}>
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Download
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                            {!result.tripInfo && (
-                                <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                    <span>Results ready</span>
-                                    <span>—</span>
-                                    <span>{result.sourceHarName}</span>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+            {result && coverageData ? (
+                <div className="flex flex-col gap-6">
+                    <TripHeaderCard
+                        tripInfo={result.tripInfo}
+                        sourceHarName={result.sourceHarName}
+                        onDownload={() => downloadReportHtml(result.reportHtml)}
+                        onNewSearch={
+                            mode === "search" && searchStep === "results"
+                                ? resetSearch
+                                : undefined
+                        }
+                    />
 
                     {hasCollisions && (
-                        <Alert className="border-amber-200 bg-amber-50">
-                            <AlertTriangle className="h-4 w-4 text-amber-600" />
-                            <AlertDescription className="text-amber-800">
-                                <strong>Attention:</strong> Seat collision detected. You will need to change seats during your journey.
+                        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                <strong>Attention:</strong> Seat collision detected. You will
+                                need to change seats during your journey.
                             </AlertDescription>
                         </Alert>
                     )}
 
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-                        <Card>
-                            <CardContent className="py-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm text-muted-foreground">Travelers</span>
-                                </div>
-                                <div className="flex justify-center">
-                                    <NumberStepper
-                                        value={isMultiChainOutput(result.seatChain) ? result.seatChain.summary.travelers : travelers}
-                                        onChange={setTravelers}
-                                        min={1}
-                                        max={20}
-                                        disabled={loading || isMultiChainOutput(result.seatChain)}
-                                    />
-                                </div>
-                                {selectedTrip && !isMultiChainOutput(result.seatChain) && (
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleSelectTrip(selectedTrip)}
-                                        disabled={loading}
-                                        className="mt-2 w-full"
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Recalculating...
-                                            </>
-                                        ) : (
-                                            "Recalculate"
-                                        )}
-                                    </Button>
-                                )}
-                            </CardContent>
-                        </Card>
+                    <ResultsSummary
+                        travelers={stepperTravelers}
+                        onTravelersChange={setTravelers}
+                        travelersLocked={multiChain}
+                        showRecalculate={Boolean(selectedTrip) && !multiChain}
+                        onRecalculate={handleRecalculate}
+                        loading={loading}
+                        coverage={coverageData}
+                        seatChanges={seatChangesCount}
+                        detectedProperties={detectedProperties}
+                        specialFilters={specialFilters}
+                        onSpecialFiltersChange={setSpecialFilters}
+                        filtersChanged={filtersChanged}
+                    />
 
-                        {detectedProperties.length > 0 && (
-                            <Card>
-                                <CardContent className="py-4">
-                                    <SpecialSeatsFilter
-                                        detectedProperties={detectedProperties}
-                                        filters={specialFilters}
-                                        onFiltersChange={setSpecialFilters}
-                                        onRecalculate={handleRecalculate}
-                                        disabled={loading}
-                                        filtersChanged={filtersChanged}
-                                    />
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        <Card>
-                            <CardContent className="py-4">
-                                {coverageData && (
-                                    <CoverageProgress covered={coverageData.covered} total={coverageData.total} />
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardContent className="py-4">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm text-muted-foreground">Seat Changes</span>
-                                </div>
-                                <div className="text-3xl font-bold">{seatChangesCount}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                    {seatChangesCount === 0 ? "You'll stay in the same seat" : "Changes required during journey"}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-semibold">Seat Assignments</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Your seat plan for each traveler.
-                        </p>
-
+                    <section aria-labelledby="seat-assignments-heading" className="space-y-3">
+                        <div>
+                            <h2
+                                id="seat-assignments-heading"
+                                className="text-xl font-semibold tracking-tight"
+                            >
+                                Seat assignments
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Your seat plan for each traveler, top to bottom.
+                            </p>
+                        </div>
                         {result.travelerViews.map((traveler) => (
                             <SeatTimeline
                                 key={traveler.travelerIndex}
@@ -761,116 +619,18 @@ export default function Home() {
                                 assignments={traveler.assignments}
                             />
                         ))}
-                    </div>
+                    </section>
 
-                    {result.blockedSeats && result.blockedSeats.length > 0 && (
-                        <BlockedSeatsSection blockedSeats={result.blockedSeats} />
+                    {result.seatReleases && result.seatReleases.length > 0 && (
+                        <SeatReleasesSection seatReleases={result.seatReleases} />
                     )}
 
-                    <Card>
-                        <CardHeader className="cursor-pointer" onClick={() => setShowDetailedView(!showDetailedView)}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-base">Detailed Segment View</CardTitle>
-                                    <CardDescription>Per-segment breakdown of seat assignments</CardDescription>
-                                </div>
-                                {showDetailedView ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                            </div>
-                        </CardHeader>
-                        {showDetailedView && (
-                            <CardContent>
-                                <div className="overflow-x-auto rounded-md border">
-                                    {isMultiChainOutput(result.seatChain) ? (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead rowSpan={2}>Seg</TableHead>
-                                                    <TableHead rowSpan={2}>From</TableHead>
-                                                    <TableHead rowSpan={2}>To</TableHead>
-                                                    <TableHead rowSpan={2}>Time</TableHead>
-                                                    {result.seatChain.travelerChains.map((tc) => (
-                                                        <TableHead key={tc.travelerIndex} colSpan={2} className="text-center">
-                                                            Traveler {tc.travelerIndex}
-                                                        </TableHead>
-                                                    ))}
-                                                    <TableHead rowSpan={2}>Status</TableHead>
-                                                </TableRow>
-                                                <TableRow>
-                                                    {result.seatChain.travelerChains.map((tc) => (
-                                                        <React.Fragment key={`sub-${tc.travelerIndex}`}>
-                                                            <TableHead>Car</TableHead>
-                                                            <TableHead>Seat</TableHead>
-                                                        </React.Fragment>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {result.seatChain.perSegmentTravelerAssignment.map((seg) => {
-                                                    const parsedSeats = seg.assignedSeats.map(parseSeat);
-                                                    return (
-                                                        <TableRow key={seg.segmentIndex}>
-                                                            <TableCell>{seg.segmentIndex}</TableCell>
-                                                            <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
-                                                            <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
-                                                            <TableCell className="text-xs">{formatTime(seg.departureTime)}</TableCell>
-                                                            {parsedSeats.map((parsed, idx) => (
-                                                                <React.Fragment key={idx}>
-                                                                    <TableCell>{parsed.carriage ?? "—"}</TableCell>
-                                                                    <TableCell>{parsed.seat ?? "—"}</TableCell>
-                                                                </React.Fragment>
-                                                            ))}
-                                                            <TableCell>
-                                                                {seg.collisionFree ? (
-                                                                    <Badge variant="outline" className="gap-1 bg-green-50 text-green-700 border-green-200">
-                                                                        <CheckCircle2 className="h-3 w-3" />
-                                                                        OK
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Badge variant="destructive" className="gap-1">
-                                                                        <XCircle className="h-3 w-3" />
-                                                                        Collision
-                                                                    </Badge>
-                                                                )}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    ) : (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Seg</TableHead>
-                                                    <TableHead>From</TableHead>
-                                                    <TableHead>To</TableHead>
-                                                    <TableHead>Time</TableHead>
-                                                    <TableHead>Carriage</TableHead>
-                                                    <TableHead>Seat</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {result.seatChain.perSegmentAssignment.map((seg) => {
-                                                    const parsed = parseSeat(seg.assignedSeat);
-                                                    return (
-                                                        <TableRow key={seg.segmentIndex}>
-                                                            <TableCell>{seg.segmentIndex}</TableCell>
-                                                            <TableCell>{seg.stationFromName ?? seg.stationFrom}</TableCell>
-                                                            <TableCell>{seg.stationToName ?? seg.stationTo}</TableCell>
-                                                            <TableCell className="text-xs">{formatTime(seg.departureTime)}</TableCell>
-                                                            <TableCell>{parsed.carriage ?? "—"}</TableCell>
-                                                            <TableCell>{parsed.seat ?? "—"}</TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    )}
-                                </div>
-                            </CardContent>
-                        )}
-                    </Card>
-                </>
+                    <DetailedSegmentsCard
+                        seatChain={result.seatChain}
+                        open={showDetailedView}
+                        onToggle={() => setShowDetailedView(!showDetailedView)}
+                    />
+                </div>
             ) : null}
         </div>
     );
