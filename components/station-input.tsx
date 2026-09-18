@@ -12,9 +12,11 @@ interface StationInputProps {
   placeholder?: string;
   disabled?: boolean;
   onTopSuggestion?: (station: Station | null) => void;
+  /** Large single-question wizard style. */
+  large?: boolean;
 }
 
-export function StationInput({ value, onChange, placeholder, disabled, onTopSuggestion }: StationInputProps) {
+export function StationInput({ value, onChange, placeholder, disabled, onTopSuggestion, large = false }: StationInputProps) {
   const [query, setQuery] = useState("");
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,9 +28,7 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
   const justSelectedRef = useRef(false);
 
   useEffect(() => {
-    if (value) {
-      setQuery(value.name);
-    }
+    setQuery(value ? value.name : "");
   }, [value]);
 
   useEffect(() => {
@@ -126,13 +126,13 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
           onBlur={handleBlur}
           placeholder={placeholder || "Enter station name..."}
           disabled={disabled}
-          className="pr-8"
+          className={cn(large ? "h-14 pr-10 text-lg" : "pr-8")}
         />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+        <div className={cn("absolute right-3 top-1/2 -translate-y-1/2")}>
           {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className={cn("animate-spin text-muted-foreground", large ? "h-5 w-5" : "h-4 w-4")} />
           ) : (
-            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <MapPin className={cn("text-muted-foreground", large ? "h-5 w-5" : "h-4 w-4")} />
           )}
         </div>
       </div>

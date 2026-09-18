@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { forwardRef } from "react";
 import { toPolishIsoString } from "@/lib/formatting";
+import { cn } from "@/lib/utils";
 
 interface DateTimeInputProps {
   date?: string;
@@ -10,10 +11,12 @@ interface DateTimeInputProps {
   onDateChange: (date: string) => void;
   onTimeChange: (time: string) => void;
   disabled?: boolean;
+  /** Large single-question wizard style. */
+  large?: boolean;
 }
 
 export const DateTimeInput = forwardRef<HTMLDivElement, DateTimeInputProps>(
-  function DateTimeInput({ date, time, onDateChange, onTimeChange, disabled }, ref) {
+  function DateTimeInput({ date, time, onDateChange, onTimeChange, disabled, large = false }, ref) {
     const todayStr = toPolishIsoString(new Date()).split("T")[0];
 
     return (
@@ -29,7 +32,7 @@ export const DateTimeInput = forwardRef<HTMLDivElement, DateTimeInputProps>(
             onChange={(e) => onDateChange(e.target.value)}
             disabled={disabled}
             min={todayStr}
-            className="h-9"
+            className={cn(large && "h-12 text-base")}
           />
         </div>
         <div className="space-y-2">
@@ -42,7 +45,7 @@ export const DateTimeInput = forwardRef<HTMLDivElement, DateTimeInputProps>(
             value={time ?? ""}
             onChange={(e) => onTimeChange(e.target.value)}
             disabled={disabled}
-            className="h-9"
+            className={cn(large && "h-12 text-base")}
           />
         </div>
       </div>
