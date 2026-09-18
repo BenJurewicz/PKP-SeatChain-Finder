@@ -1,5 +1,9 @@
-import { getText } from "./http";
-import { BILKOM_TRIP_SEARCH_URL, DEFAULT_SEARCH_HEADERS } from "./constants";
+import { getTextAndHeaders } from "./http";
+import {
+  BILKOM_HOME_URL,
+  BILKOM_TRIP_SEARCH_URL,
+  DEFAULT_SEARCH_HEADERS,
+} from "./constants";
 import type { Station } from "./types";
 
 export interface TripStop {
@@ -39,10 +43,90 @@ export interface Trip {
   };
 }
 
+interface JourneyLegStop {
+  type?: string;
+  id?: string;
+  name?: string;
+  arrivalDate?: number | null;
+  departureDate?: number | null;
+  platform?: string | null;
+  track?: string | null;
+  extId?: string;
+}
+
+interface JourneyLeg {
+  num?: string | null;
+  trainCommercialName?: string | null;
+  routeType?: string | null;
+  totalTime?: number | null;
+  stops?: JourneyLegStop[];
+}
+
+/** Session cookie cache for bilkom.pl (the podroz search requires a SESSION cookie). */
+let sessionCookie: string | null = null;
+let sessionCookieFetchedAt = 0;
+const SESSION_COOKIE_TTL_MS = 10 * 60 * 1000;
+
+async function fetchSessionCookie(): Promise<string | null> {
+  const { headers } = await getTextAndHeaders(BILKOM_HOME_URL, DEFAULT_SEARCH_HEADERS);
+  const setCookie = headers["set-cookie"];
+  if (!setCookie) return null;
+  const match = /SESSION=([^;,]+)/.exec(setCookie);
+  return match ? `SESSION=${match[1]}` : null;
+}
+
+async function getSessionCookie(): Promise<string | null> {
+  const now = Date.now();
+  if (sessionCookie && now - sessionCookieFetchedAt < SESSION_COOKIE_TTL_MS) {
+    return sessionCookie;
+  }
+  sessionCookie = await fetchSessionCookie();
+  sessionCookieFetchedAt = now;
+  return sessionCookie;
+}
+
+function invalidateSessionCookie(): void {
+  sessionCookie = null;
+  sessionCookieFetchedAt = 0;
+}
+
 function extractCarrierId(trainName: string): string {
   if (!trainName) return "";
   const parts = trainName.trim().split(/\s+/);
-  return parts[0] || "";
+  const carrier = parts[0] || "";
+  return isPlaceholderName(carrier) ? "" : carrier;
+}
+
+/** True when the server rendered a literal "null"/"undefined" placeholder
+ * instead of a real name (it string-concatenates null trip fields, e.g.
+ * `<div class="hidden main-carrier">null null</div>` for mixed trips). */
+function isPlaceholderName(name: string): boolean {
+  return /^(null|undefined|nan)([\s-]|$)/i.test(name);
+}
+
+function formatDateTimeParts(dateTime: Date): { year: string; month: string; day: string; hour: string; minute: string } {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Warsaw",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(dateTime);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute") };
+}
+
+function formatDateWarsaw(dateTime: Date, separator: string): string {
+  const p = formatDateTimeParts(dateTime);
+  return `${p.day}${separator}${p.month}${separator}${p.year}`;
+}
+
+function formatTimeWarsaw(dateTime: Date): string {
+  const p = formatDateTimeParts(dateTime);
+  return `${p.hour}:${p.minute}`;
 }
 
 function timestampToIso(tsMs: number): string {
@@ -55,7 +139,7 @@ function timestampToIso(tsMs: number): string {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   });
   const parts = formatter.formatToParts(date);
   const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
@@ -67,18 +151,21 @@ function parseTimestamp(ts: number | null | undefined): string | null {
   return timestampToIso(ts);
 }
 
-function parseTripDataJson(jsonStr: string): Record<string, unknown> | null {
-  try {
-    return JSON.parse(jsonStr) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+function decodeHTMLEntities(str: string): string {
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&#47;/g, "/");
 }
 
 interface MatchResult {
   tripIndex: number;
-  tripId: string;
-  tripData: Record<string, unknown> | null;
+  legs: JourneyLeg[];
   trainName: string;
 }
 
@@ -86,32 +173,44 @@ function extractTripMatches(html: string): MatchResult[] {
   const matches: MatchResult[] = [];
   const tripPattern = /<li[^>]*class="el"[^>]*data-trip="(\d+)"[^>]*data-trip-id="([^"]+)"/g;
 
+  const starts: Array<{ index: number; tripIndex: number }> = [];
   let match: RegExpExecArray | null;
   while ((match = tripPattern.exec(html)) !== null) {
-    const tripIndex = parseInt(match[1], 10);
-    const tripId = decodeHTMLEntities(match[2]);
+    starts.push({ index: match.index, tripIndex: parseInt(match[1], 10) });
+  }
 
-    const searchStart = match.index + match[0].length;
-    const searchEnd = Math.min(searchStart + 50000, html.length);
+  for (let i = 0; i < starts.length; i += 1) {
+    const tripIndex = starts[i].tripIndex;
+    const searchStart = starts[i].index;
+    // Cap the search area at the start of the next trip element so carrier/
+    // jsonPath lookups never bleed into the following trip.
+    const searchEnd = i + 1 < starts.length ? starts[i + 1].index : Math.min(searchStart + 200000, html.length);
     const searchArea = html.substring(searchStart, searchEnd);
 
-    const tripDataPattern = /data-partoftripobj="([^"]+(?:\\&quot;[^"]*)*)"/;
-    const tripDataMatch = tripDataPattern.exec(searchArea);
+    const jsonPathPattern = /<input[^>]*class="jsonPath"[^>]*>/;
+    const jsonPathMatch = jsonPathPattern.exec(searchArea);
+    if (!jsonPathMatch) continue;
 
-    let tripData: Record<string, unknown> | null = null;
-    if (tripDataMatch) {
-      const jsonStr = decodeHTMLEntities(tripDataMatch[1]);
-      tripData = parseTripDataJson(jsonStr);
+    const valueMatch = /value="([^"]*)"/.exec(jsonPathMatch[0]);
+    if (!valueMatch) continue;
+
+    let legs: JourneyLeg[];
+    try {
+      const parsed: unknown = JSON.parse(decodeHTMLEntities(valueMatch[1]));
+      if (!Array.isArray(parsed)) continue;
+      legs = parsed as JourneyLeg[];
+    } catch {
+      continue;
     }
 
     const carrierPattern = /<div class="hidden main-carrier">([^<]+)<\/div>/;
     const carrierMatch = carrierPattern.exec(searchArea);
-    const trainName = carrierMatch ? carrierMatch[1].trim() : "";
+    const rawTrainName = carrierMatch ? carrierMatch[1].trim() : "";
+    const trainName = isPlaceholderName(rawTrainName) ? "" : rawTrainName;
 
     matches.push({
       tripIndex,
-      tripId,
-      tripData,
+      legs,
       trainName,
     });
   }
@@ -119,35 +218,24 @@ function extractTripMatches(html: string): MatchResult[] {
   return matches;
 }
 
-function decodeHTMLEntities(str: string): string {
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#x2F;/g, "/");
-}
-
-function extractStopsFromTripData(
-  tripData: Record<string, unknown> | null
-): TripStop[] {
-  if (!tripData) return [];
-
-  const stops = tripData.stops;
+function extractStopsFromLeg(leg: JourneyLeg): TripStop[] {
+  const stops = leg.stops;
   if (!Array.isArray(stops)) return [];
 
-  return stops.map((stop: unknown) => {
-    const s = stop as Record<string, unknown>;
+  return stops.map((stop) => {
     return {
-      stationId: String(s.extId ?? ""),
-      stationName: String(s.name ?? ""),
-      arrivalDate: parseTimestamp(s.arrivalDate as number | null | undefined),
-      departureDate: parseTimestamp(s.departureDate as number | null | undefined),
-      platform: s.platform ? String(s.platform) : undefined,
-      track: s.track ? String(s.track) : undefined,
+      stationId: String(stop.extId ?? ""),
+      stationName: String(stop.name ?? ""),
+      arrivalDate: parseTimestamp(stop.arrivalDate),
+      departureDate: parseTimestamp(stop.departureDate),
+      platform: stop.platform ? String(stop.platform) : undefined,
+      track: stop.track ? String(stop.track) : undefined,
     };
   });
+}
+
+function isTrainLeg(leg: JourneyLeg): boolean {
+  return leg.routeType === "TRAIN" && typeof leg.num === "string" && leg.num.length > 0;
 }
 
 function isValidTrip(trip: Partial<Trip>): trip is Trip {
@@ -157,31 +245,100 @@ function isValidTrip(trip: Partial<Trip>): trip is Trip {
   return true;
 }
 
+function buildTripFromMatch(match: MatchResult): Trip | null {
+  // The GRM seat-map pipeline only supports a single train, so only trips made
+  // up of exactly one TRAIN leg are usable (direct connections).
+  const trainLegs = match.legs.filter(isTrainLeg);
+  if (trainLegs.length !== 1) return null;
+  const leg = trainLegs[0];
+
+  const stops = extractStopsFromLeg(leg);
+  if (stops.length < 2) return null;
+
+  const num = typeof leg.num === "string" ? leg.num : "";
+  const vehicleNumber = parseInt(num, 10);
+  if (!Number.isFinite(vehicleNumber) || vehicleNumber <= 0) return null;
+
+  const firstStop = stops[0];
+  const lastStop = stops[stops.length - 1];
+
+  let trainName = match.trainName;
+  if (!trainName) {
+    trainName = `${num}${leg.trainCommercialName ? ` "${leg.trainCommercialName}"` : ""}`;
+  }
+
+  const trip: Partial<Trip> = {
+    tripIndex: match.tripIndex,
+    trainName,
+    trainNumber: num,
+    carrierId: extractCarrierId(trainName),
+    departure: {
+      stationId: firstStop.stationId,
+      stationName: firstStop.stationName,
+      dateTime: firstStop.departureDate ?? "",
+    },
+    arrival: {
+      stationId: lastStop.stationId,
+      stationName: lastStop.stationName,
+      dateTime: lastStop.arrivalDate ?? "",
+    },
+    duration: leg.totalTime ?? 0,
+    stops,
+    segmentRequest: {
+      stationFrom: parseInt(firstStop.stationId, 10),
+      stationTo: parseInt(lastStop.stationId, 10),
+      stationNumberingSystem: "HAFAS",
+      vehicleNumber,
+      departureDate: firstStop.departureDate ?? "",
+      arrivalDate: lastStop.arrivalDate ?? "",
+      type: "CARRIAGE",
+    },
+  };
+
+  if (!isValidTrip(trip)) return null;
+  return trip;
+}
+
+/** True when the podroz page rendered its "no connections found" template. */
+function isEmptySearchResponse(html: string): boolean {
+  return html.includes("id=\"empty-results\"") || html.includes("Nie znaleziono");
+}
+
+async function fetchTripHtml(
+  params: URLSearchParams,
+): Promise<{ html: string; cookieWasUsed: boolean }> {
+  const cookie = await getSessionCookie();
+  const headers: Record<string, string> = { ...DEFAULT_SEARCH_HEADERS };
+  if (cookie) {
+    headers["Cookie"] = cookie;
+  }
+
+  const url = `${BILKOM_TRIP_SEARCH_URL}?${params.toString()}`;
+  const { text, headers: responseHeaders } = await getTextAndHeaders(url, headers);
+
+  // Keep the session cookie warm if the server refreshed it.
+  const refreshed = responseHeaders["set-cookie"];
+  if (refreshed) {
+    const match = /SESSION=([^;,]+)/.exec(refreshed);
+    if (match) {
+      sessionCookie = `SESSION=${match[1]}`;
+      sessionCookieFetchedAt = Date.now();
+    }
+  }
+
+  return { html: text, cookieWasUsed: Boolean(cookie) };
+}
+
 export async function findTrips(
   fromStation: Station,
   toStation: Station,
   dateTime: Date
 ): Promise<Trip[]> {
-  const formattedDate = dateTime.toLocaleDateString("pl-PL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  const formattedTime = dateTime.toLocaleTimeString("pl-PL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  const formattedDate = formatDateWarsaw(dateTime, ".");
+  const formattedTime = formatTimeWarsaw(dateTime);
 
-  const dataParam = dateTime
-    .toLocaleDateString("pl-PL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-    .replace(/\//g, "");
+  // Bilkom trip search expects DDMMYYYYHHMM (e.g. 200920260900).
+  const dataParam = formatDateWarsaw(dateTime, "") + formattedTime.replace(":", "");
 
   const params = new URLSearchParams({
     basketKey: "",
@@ -202,60 +359,28 @@ export async function findTrips(
     date: formattedDate,
     time: formattedTime,
     przyjazd: "false",
-    // bilkomAvailOnly: "on",
-    directOnly: "on",
     _csrf: "",
   });
 
-  const url = `${BILKOM_TRIP_SEARCH_URL}?${params.toString()}`;
-  const html = await getText(url, DEFAULT_SEARCH_HEADERS);
+  // The `directOnly` query param makes the current podroz endpoint return no
+  // results at all (it broke server-side); direct connections are filtered
+  // after parsing instead (see buildTripFromMatch).
+  let html = (await fetchTripHtml(params)).html;
+  let matches = extractTripMatches(html);
 
-  const matches = extractTripMatches(html);
+  if (matches.length === 0 && isEmptySearchResponse(html)) {
+    // The no-results page is also what a missing/expired session cookie
+    // produces — refresh the cookie once and retry.
+    invalidateSessionCookie();
+    const retry = await fetchTripHtml(params);
+    html = retry.html;
+    matches = extractTripMatches(html);
+  }
+
   const trips: Trip[] = [];
-
   for (const match of matches) {
-    if (!match.tripData) continue;
-
-    const stops = extractStopsFromTripData(match.tripData);
-    if (stops.length < 2) continue;
-
-    const num = match.tripData.num;
-    const startDate = match.tripData.startDate as number | undefined;
-    const stopDate = match.tripData.stopDate as number | undefined;
-    const totalTime = match.tripData.totalTime as number | undefined;
-
-    const firstStop = stops[0];
-    const lastStop = stops[stops.length - 1];
-
-    const trip: Partial<Trip> = {
-      tripIndex: match.tripIndex,
-      trainName: match.trainName,
-      trainNumber: num != null ? String(num) : "",
-      carrierId: extractCarrierId(match.trainName),
-      departure: {
-        stationId: firstStop.stationId,
-        stationName: firstStop.stationName,
-        dateTime: firstStop.departureDate ?? "",
-      },
-      arrival: {
-        stationId: lastStop.stationId,
-        stationName: lastStop.stationName,
-        dateTime: lastStop.arrivalDate ?? "",
-      },
-      duration: totalTime ?? 0,
-      stops,
-      segmentRequest: {
-        stationFrom: parseInt(firstStop.stationId, 10),
-        stationTo: parseInt(lastStop.stationId, 10),
-        stationNumberingSystem: "HAFAS",
-        vehicleNumber: num != null ? parseInt(String(num), 10) : 0,
-        departureDate: firstStop.departureDate ?? "",
-        arrivalDate: lastStop.arrivalDate ?? "",
-        type: "CARRIAGE",
-      },
-    };
-
-    if (isValidTrip(trip)) {
+    const trip = buildTripFromMatch(match);
+    if (trip) {
       trips.push(trip);
     }
   }

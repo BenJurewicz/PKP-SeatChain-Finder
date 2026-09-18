@@ -28,12 +28,12 @@ function decodeBuffer(data: Buffer, encodingHeader: string | string[] | undefine
   return data;
 }
 
-async function requestText(
+async function requestRaw(
   url: string,
   headers: Record<string, string>,
   body: string | null,
-  timeoutMs: number = 30_000,
-): Promise<string> {
+  timeoutMs: number,
+): Promise<{ text: string; headers: Record<string, string> }> {
   const parsed = new URL(url);
   const isHttps = parsed.protocol === "https:";
   const transport = isHttps ? https : http;
@@ -57,7 +57,7 @@ async function requestText(
     options.agent = new https.Agent({ rejectUnauthorized: false });
   }
 
-  return await new Promise<string>((resolve, reject) => {
+  return await new Promise<{ text: string; headers: Record<string, string> }>((resolve, reject) => {
     const req = transport.request(options, (res) => {
       const chunks: Buffer[] = [];
       res.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
@@ -67,7 +67,15 @@ async function requestText(
         const text = decoded.toString("utf-8").trim();
         const status = res.statusCode ?? 0;
         if (status >= 200 && status < 300) {
-          resolve(text);
+          const responseHeaders: Record<string, string> = {};
+          for (const [name, value] of Object.entries(res.headers)) {
+            if (typeof value === "string") {
+              responseHeaders[name.toLowerCase()] = value;
+            } else if (Array.isArray(value)) {
+              responseHeaders[name.toLowerCase()] = value.join(", ");
+            }
+          }
+          resolve({ text, headers: responseHeaders });
           return;
         }
         reject(new HttpError(`HTTP ${status}`, status, text));
@@ -83,6 +91,24 @@ async function requestText(
     }
     req.end();
   });
+}
+
+async function requestText(
+  url: string,
+  headers: Record<string, string>,
+  body: string | null,
+  timeoutMs: number = 30_000,
+): Promise<string> {
+  const { text } = await requestRaw(url, headers, body, timeoutMs);
+  return text;
+}
+
+export async function getTextAndHeaders(
+  url: string,
+  headers?: Record<string, string>,
+  timeoutMs: number = SEARCH_REQUEST_TIMEOUT_MS,
+): Promise<{ text: string; headers: Record<string, string> }> {
+  return await requestRaw(url, headers ?? {}, null, timeoutMs);
 }
 
 export async function postJson<T>(url: string, headers: Record<string, string>, payload: unknown): Promise<T> {

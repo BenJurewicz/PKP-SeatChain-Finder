@@ -1,10 +1,11 @@
+export const BILKOM_HOME_URL = "https://bilkom.pl/";
 export const BILKOM_STATION_SEARCH_URL = "https://bilkom.pl/stacje/szukaj";
 export const BILKOM_TRIP_SEARCH_URL = "https://bilkom.pl/podroz";
 
 export const DEFAULT_BILKOM_AUTH =
   "Basic Qmlsa29tUEtQOlY9dGZAc003NlZFOUhRUlloZEMzX3o=";
 
-export const DEFAULT_BILKOM_GRM_URL = "https://beta.bilkom.pl/grm";
+export const DEFAULT_BILKOM_GRM_URL = "https://bilkom.pl/grm";
 
 export const DEFAULT_BILKOM_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -14,11 +15,11 @@ export const DEFAULT_BILKOM_HEADERS: Record<string, string> = {
   "Accept-Encoding": "gzip, deflate, br, zstd",
   Authorization: DEFAULT_BILKOM_AUTH,
   "Content-Type": "application/json",
-  Origin: "https://beta.bilkom.pl",
+  Origin: "https://bilkom.pl",
   DNT: "1",
   "Sec-GPC": "1",
   Connection: "keep-alive",
-  Referer: "https://beta.bilkom.pl/ngx-grm/ngx-grm/?v=%204.3",
+  Referer: "https://bilkom.pl/ngx-grm/ngx-grm/?v=%204.5.10",
   "Sec-Fetch-Dest": "empty",
   "Sec-Fetch-Mode": "cors",
   "Sec-Fetch-Site": "same-origin",

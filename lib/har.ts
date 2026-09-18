@@ -12,8 +12,11 @@ function deriveGrmUrls(grmUrl: string): {
   } catch {
     throw new Error(`Invalid request URL: ${grmUrl}`);
   }
-  const origin = `${parsed.protocol}//${parsed.host}`;
-  const normalizedGrm = grmUrl.endsWith("/grm") ? grmUrl : `${origin}/grm`;
+  // The old beta.bilkom.pl GRM host is dead (HTTP 500); remap HARs captured on
+  // either host to the current bilkom.pl origin.
+  const hostname = parsed.hostname === "beta.bilkom.pl" ? "bilkom.pl" : parsed.hostname;
+  const origin = `${parsed.protocol}//${hostname}`;
+  const normalizedGrm = grmUrl.endsWith("/grm") ? `${origin}${parsed.pathname}` : `${origin}/grm`;
   return {
     grmUrl: normalizedGrm,
     epaStationNameUrl: `${normalizedGrm}/epaStationName`,
