@@ -54,7 +54,10 @@ export function SeatsView({ query, initialTravelers }: SeatsViewProps) {
   }
 
   const loading = pipeline.segmentsLoading && !pipeline.output;
-  const loadFailed = !pipeline.segmentsLoading && pipeline.segmentsData === null;
+  // startedRef becomes true inside the load effect, so the first paint never
+  // shows the error card before a load attempt has actually failed.
+  const loadFailed =
+    startedRef.current && !pipeline.segmentsLoading && pipeline.segmentsData === null;
 
   return (
     <>
