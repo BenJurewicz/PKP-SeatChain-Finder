@@ -54,7 +54,7 @@ import {
     getTravelers,
 } from "@/lib/view-model";
 
-type FlowStep = "from" | "to" | "when" | "train" | "travelers" | "har" | "results";
+type FlowStep = "details" | "train" | "travelers" | "har" | "results";
 type ResultSource = "search" | "har";
 
 type RunResponse = {
@@ -115,7 +115,7 @@ function ResultsLoadingSkeleton() {
 }
 
 export default function Home() {
-    const [flowStep, setFlowStep] = useState<FlowStep>("from");
+    const [flowStep, setFlowStep] = useState<FlowStep>("details");
     const [resultSource, setResultSource] = useState<ResultSource>("search");
 
     const [travelers, setTravelers] = useState(1);
@@ -161,13 +161,9 @@ export default function Home() {
 
     const canRecalculate = segmentsData !== null;
 
-    /** Clear everything downstream of a changed answer. */
-    function invalidateAfter(level: "from" | "to" | "when") {
-        if (level !== "when") {
-            setTrips([]);
-            setTripsSearched(false);
-            setSegmentsData(null);
-        }
+    /** Clear all downstream choices (trips, train, seat plans). */
+    function invalidateAfterJourney() {
+        setTrips([]);
         setTripsSearched(false);
         setSelectedTrip(null);
         setSegmentsData(null);
@@ -179,18 +175,16 @@ export default function Home() {
     }
 
     function resetAll() {
-        setFlowStep("from");
+        setFlowStep("details");
         setResultSource("search");
-        invalidateAfter("from");
+        invalidateAfterJourney();
         setError(null);
     }
 
     function handleProgressClick(index: number) {
         if (loading || tripsLoading || segmentsLoading) return;
-        if (index >= 1 && !fromStation) return;
-        if (index >= 2 && !toStation) return;
-        if (index >= 3 && !tripsSearched) return;
-        if (index >= 4 && !(selectedTrip && segmentsData)) return;
+        if (index >= 1 && !tripsSearched) return;
+        if (index >= 2 && !(selectedTrip && segmentsData)) return;
         setError(null);
         setFlowStep(WIZARD_STEPS[index].key);
     }
@@ -542,135 +536,38 @@ export default function Home() {
         );
     }
 
+    const journeySummaryLabel =
+        fromStation && toStation
+            ? `${fromStation.name} → ${toStation.name} · ${tripDate} ${tripTime}`
+            : fromStation
+              ? `From: ${fromStation.name}`
+              : toStation
+                ? `To: ${toStation.name}`
+                : "Journey details";
+
+    const journeyChip = { label: journeySummaryLabel, onClick: () => goToStep("details") };
+
     // Wizard shell for all pre-results steps.
 
     let stepContent: React.ReactNode;
 
-    if (flowStep === "from") {
+    if (flowStep === "details") {
         stepContent = (
             <WizardStep
-                title="Where are you starting?"
-                description="Type the name of your departure station."
+                wide
+                title="Where and when do you travel?"
+                description="Pick your route and the earliest departure time — times are in the Polish timezone."
                 footer={
                     <>
                         <span className="text-xs text-muted-foreground">
-                            Tip: press Enter to continue
+                            Tip: press Enter to search
                         </span>
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                if (fromStation) setFlowStep("to");
-                            }}
-                            className="contents"
-                        >
-                            <Button type="submit" disabled={!fromStation} className="min-w-36">
-                                Next: destination
-                                <ArrowRight className="ml-1.5 h-4 w-4" />
-                            </Button>
-                        </form>
-                    </>
-                }
-            >
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        if (fromStation) setFlowStep("to");
-                    }}
-                >
-                    <StationInput
-                        key="wizard-from"
-                        value={fromStation}
-                        onChange={(station) => {
-                            setFromStation(station);
-                            if (station) {
-                                invalidateAfter("from");
-                                setFlowStep("to");
-                            }
-                        }}
-                        placeholder="Departure station…"
-                        disabled={tripsLoading || segmentsLoading}
-                        large
-                    />
-                </form>
-                <div className="mt-6 flex justify-center">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            invalidateAfter("from");
-                            setFlowStep("har");
-                        }}
-                        disabled={tripsLoading || segmentsLoading}
-                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                        <FileInput className="h-4 w-4" />
-                        Have a captured HAR file? Import it instead
-                    </button>
-                </div>
-            </WizardStep>
-        );
-    } else if (flowStep === "to") {
-        stepContent = (
-            <WizardStep
-                title="Where are you headed?"
-                description="Type the name of your destination station."
-                chips={
-                    fromStation
-                        ? [{ label: `From: ${fromStation.name}`, onClick: () => goToStep("from") }]
-                        : undefined
-                }
-                footer={
-                    <>
-                        <WizardBackButton onClick={() => goToStep("from")} />
-                        <Button type="submit" disabled={!toStation} className="min-w-36">
-                            Next: travel date
-                            <ArrowRight className="ml-1.5 h-4 w-4" />
-                        </Button>
-                    </>
-                }
-            >
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        if (toStation) setFlowStep("when");
-                    }}
-                >
-                    <StationInput
-                        key="wizard-to"
-                        value={toStation}
-                        onChange={(station) => {
-                            setToStation(station);
-                            if (station) {
-                                invalidateAfter("to");
-                                setFlowStep("when");
-                            }
-                        }}
-                        placeholder="Destination station…"
-                        disabled={tripsLoading || segmentsLoading}
-                        large
-                    />
-                </form>
-            </WizardStep>
-        );
-    } else if (flowStep === "when") {
-        stepContent = (
-            <WizardStep
-                title="When do you travel?"
-                description="Pick a date and the earliest departure time — times are in the Polish timezone."
-                chips={[
-                    ...(fromStation
-                        ? [{ label: `From: ${fromStation.name}`, onClick: () => goToStep("from") }]
-                        : []),
-                    ...(toStation
-                        ? [{ label: `To: ${toStation.name}`, onClick: () => goToStep("to") }]
-                        : []),
-                ]}
-                footer={
-                    <>
-                        <WizardBackButton onClick={() => goToStep("to")} />
                         <Button
                             type="button"
                             onClick={handleSearchTrips}
-                            disabled={tripsLoading || !tripDate || !tripTime}
+                            disabled={
+                                tripsLoading || !fromStation || !toStation || !tripDate || !tripTime
+                            }
                             className="min-w-40"
                         >
                             {tripsLoading ? (
@@ -688,20 +585,78 @@ export default function Home() {
                     </>
                 }
             >
-                <DateTimeInput
-                    date={tripDate}
-                    time={tripTime}
-                    onDateChange={(date) => {
-                        setTripDate(date);
-                        invalidateAfter("when");
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSearchTrips();
                     }}
-                    onTimeChange={(time) => {
-                        setTripTime(time);
-                        invalidateAfter("when");
-                    }}
-                    disabled={tripsLoading || segmentsLoading}
-                    large
-                />
+                >
+                    <div className="grid items-start gap-4 md:grid-cols-[1fr_auto_1fr]">
+                        <div className="space-y-2">
+                            <label htmlFor="from-station" className="text-sm font-medium">
+                                From
+                            </label>
+                            <StationInput
+                                key="wizard-from"
+                                value={fromStation}
+                                onChange={(station) => {
+                                    setFromStation(station);
+                                    if (station) invalidateAfterJourney();
+                                }}
+                                placeholder="Departure station…"
+                                disabled={tripsLoading || segmentsLoading}
+                            />
+                        </div>
+                        <ArrowRight
+                            aria-hidden="true"
+                            className="mx-auto mt-9 hidden h-4 w-4 text-muted-foreground md:block"
+                        />
+                        <div className="space-y-2">
+                            <label htmlFor="to-station" className="text-sm font-medium">
+                                To
+                            </label>
+                            <StationInput
+                                key="wizard-to"
+                                value={toStation}
+                                onChange={(station) => {
+                                    setToStation(station);
+                                    if (station) invalidateAfterJourney();
+                                }}
+                                placeholder="Destination station…"
+                                disabled={tripsLoading || segmentsLoading}
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-4">
+                        <DateTimeInput
+                            date={tripDate}
+                            time={tripTime}
+                            onDateChange={(date) => {
+                                setTripDate(date);
+                                invalidateAfterJourney();
+                            }}
+                            onTimeChange={(time) => {
+                                setTripTime(time);
+                                invalidateAfterJourney();
+                            }}
+                            disabled={tripsLoading || segmentsLoading}
+                        />
+                    </div>
+                    <div className="mt-6 flex justify-center">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                invalidateAfterJourney();
+                                setFlowStep("har");
+                            }}
+                            disabled={tripsLoading || segmentsLoading}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                            <FileInput className="h-4 w-4" />
+                            Have a captured HAR file? Import it instead
+                        </button>
+                    </div>
+                </form>
             </WizardStep>
         );
     } else if (flowStep === "train") {
@@ -714,19 +669,8 @@ export default function Home() {
                         ? "Searching for trains…"
                         : `${trips.length} ${trips.length === 1 ? "train" : "trains"} on this route`
                 }
-                chips={[
-                    ...(fromStation
-                        ? [{ label: `From: ${fromStation.name}`, onClick: () => goToStep("from") }]
-                        : []),
-                    ...(toStation
-                        ? [{ label: `To: ${toStation.name}`, onClick: () => goToStep("to") }]
-                        : []),
-                    {
-                        label: `${tripDate} at ${tripTime}`,
-                        onClick: () => goToStep("when"),
-                    },
-                ]}
-                footer={<WizardBackButton onClick={() => goToStep("when")} />}
+                chips={[journeyChip]}
+                footer={<WizardBackButton onClick={() => goToStep("details")} />}
             >
                 {error ? (
                     <Alert variant="destructive" className="mb-4">
@@ -755,13 +699,7 @@ export default function Home() {
                 title="How many travelers?"
                 description="Each traveler gets their own seat plan with as few seat changes as possible."
                 chips={[
-                    ...(fromStation
-                        ? [{ label: `From: ${fromStation.name}`, onClick: () => goToStep("from") }]
-                        : []),
-                    ...(toStation
-                        ? [{ label: `To: ${toStation.name}`, onClick: () => goToStep("to") }]
-                        : []),
-                    { label: `${tripDate} at ${tripTime}`, onClick: () => goToStep("when") },
+                    journeyChip,
                     ...(selectedTrip
                         ? [
                               {
@@ -843,8 +781,8 @@ export default function Home() {
             <WizardStep
                 title="Import a captured request"
                 description="Replay a browser capture (HAR file) through the same seat-finding pipeline."
-                chips={[{ label: "Use live search instead", onClick: () => goToStep("from") }]}
-                footer={<WizardBackButton onClick={() => goToStep("from")} label="Live search" />}
+                chips={[{ label: "Use live search instead", onClick: () => goToStep("details") }]}
+                footer={<WizardBackButton onClick={() => goToStep("details")} label="Live search" />}
             >
                 <form className="grid gap-5" onSubmit={handleHarSubmit}>
                     <HarInstructions
@@ -904,7 +842,7 @@ export default function Home() {
                         onStepClick={handleProgressClick}
                         className="mx-auto"
                     />
-                    {error && currentProgressIndex < 3 ? (
+                    {error && currentProgressIndex === 0 ? (
                         <Alert variant="destructive" className="mx-auto w-full max-w-2xl">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>{error}</AlertDescription>
