@@ -11,48 +11,47 @@ const POLISH_LOCALE = 'pl-PL' as const;
  * Returns em-dash for null/undefined/invalid values
  */
 export function formatTime(iso: string | undefined | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleTimeString(POLISH_LOCALE, {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: POLISH_TIMEZONE,
-    });
-  } catch {
-    return '—';
-  }
+  const date = parseWarsawDate(iso);
+  if (!date) return '—';
+  return date.toLocaleTimeString(POLISH_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: POLISH_TIMEZONE,
+  });
+}
+
+/** Parse an ISO timestamp, rejecting values like "nonsense" that toLocale*
+ * methods silently render as "Invalid Date" instead of throwing. */
+function parseWarsawDate(iso: string | undefined | null): Date | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 /**
  * Formats an ISO timestamp to date string (Mon DD)
  */
 export function formatDate(iso: string | undefined | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString(POLISH_LOCALE, {
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
+  const date = parseWarsawDate(iso);
+  if (!date) return '—';
+  return date.toLocaleDateString(POLISH_LOCALE, {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 /**
  * Formats an ISO timestamp to full date string (Mon DD, YYYY)
  */
 export function formatFullDate(iso: string | undefined | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString(POLISH_LOCALE, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: POLISH_TIMEZONE,
-    });
-  } catch {
-    return '—';
-  }
+  const date = parseWarsawDate(iso);
+  if (!date) return '—';
+  return date.toLocaleDateString(POLISH_LOCALE, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: POLISH_TIMEZONE,
+  });
 }
 
 /**
