@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local Pi worktrees (each contains its own build artifacts):
+    ".worktrees/**",
   ]),
 ]);
 

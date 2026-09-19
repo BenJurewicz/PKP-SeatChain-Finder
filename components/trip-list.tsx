@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import type { Trip } from "@/lib/types";
 import { formatDuration, formatTime, formatDate } from "@/lib/formatting";
@@ -13,9 +14,26 @@ interface TripListProps {
   selectedTrip: Trip | null;
   onSelect: (trip: Trip) => void;
   disabled?: boolean;
+  onLoadEarlier?: () => void;
+  onLoadLater?: () => void;
+  earlierLoading?: boolean;
+  laterLoading?: boolean;
+  earlierExhausted?: boolean;
+  laterExhausted?: boolean;
 }
 
-export function TripList({ trips, selectedTrip, onSelect, disabled }: TripListProps) {
+export function TripList({
+  trips,
+  selectedTrip,
+  onSelect,
+  disabled,
+  onLoadEarlier,
+  onLoadLater,
+  earlierLoading = false,
+  laterLoading = false,
+  earlierExhausted = false,
+  laterExhausted = false,
+}: TripListProps) {
   if (trips.length === 0) {
     return (
       <Card>
@@ -27,7 +45,18 @@ export function TripList({ trips, selectedTrip, onSelect, disabled }: TripListPr
   }
 
   return (
-    <div className="space-y-3">{trips.map((trip) => (
+    <div className="space-y-3">
+      {onLoadEarlier ? (
+        <TripWindowButton
+          label={earlierExhausted ? "No earlier trains" : "See earlier trains"}
+          icon={<ChevronUp className="h-4 w-4" />}
+          loading={earlierLoading}
+          exhausted={earlierExhausted}
+          disabled={disabled}
+          onClick={onLoadEarlier}
+        />
+      ) : null}
+      {trips.map((trip) => (
         <TripCard
           key={trip.tripIndex}
           trip={trip}
@@ -36,7 +65,41 @@ export function TripList({ trips, selectedTrip, onSelect, disabled }: TripListPr
           disabled={disabled}
         />
       ))}
+      {onLoadLater ? (
+        <TripWindowButton
+          label={laterExhausted ? "No later trains" : "See later trains"}
+          icon={<ChevronDown className="h-4 w-4" />}
+          loading={laterLoading}
+          exhausted={laterExhausted}
+          disabled={disabled}
+          onClick={onLoadLater}
+        />
+      ) : null}
     </div>
+  );
+}
+
+interface TripWindowButtonProps {
+  label: string;
+  icon: React.ReactNode;
+  loading: boolean;
+  exhausted: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}
+
+function TripWindowButton({ label, icon, loading, exhausted, disabled, onClick }: TripWindowButtonProps) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="w-full"
+      onClick={onClick}
+      disabled={disabled || loading || exhausted}
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      {label}
+    </Button>
   );
 }
 

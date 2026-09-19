@@ -68,6 +68,66 @@ type RunResponse = {
     tripInfo?: TripInfo;
 };
 
+/** How far back the "See earlier trains" window reaches, in minutes.
+ * The podroz endpoint has no pagination, so earlier/later loading re-runs
+ * the search anchored outside the currently listed window. */
+const EARLIER_WINDOW_MINUTES = 120;
+
+/** Shift a Warsaw wall-clock ISO string ("YYYY-MM-DDTHH:MM:SS") by whole
+ * minutes while keeping the same wall-clock reading (DST-agnostic:
+ * arithmetic happens on the displayed time, not on an absolute instant). */
+function shiftWallClock(iso: string, minutes: number): { date: string; time: string } {
+    const [datePart, timePart] = iso.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+    const shifted = new Date(Date.UTC(year, month - 1, day, hour + 0, minute + minutes));
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return {
+        date: `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`,
+        time: `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`,
+    };
+}
+
+async function fetchTripsFor(
+    fromStation: Station,
+    toStation: Station,
+    date: string,
+    time: string,
+): Promise<Trip[]> {
+    const response = await fetch("/api/trips/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromStation, toStation, date, time }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error ?? "Failed to search trips");
+    }
+    return (data.trips as Trip[]) ?? [];
+}
+
+/** Identity that survives re-indexing across windowed searches. */
+function stableTripKey(trip: Trip): string {
+    return `${trip.trainNumber}|${trip.departure.dateTime}|${trip.arrival.dateTime}`;
+}
+
+function sortTrips(list: Trip[]): Trip[] {
+    return [...list].sort(
+        (a, b) =>
+            a.departure.dateTime.localeCompare(b.departure.dateTime) ||
+            a.arrival.dateTime.localeCompare(b.arrival.dateTime) ||
+            a.trainNumber.localeCompare(b.trainNumber),
+    );
+}
+
+/** tripIndex is per-search in the parser; make it sequential after merging
+ * windows so React keys and selection comparisons stay unique. */
+function withSequentialIndices(list: Trip[]): Trip[] {
+    return list.map((trip, index) =>
+        trip.tripIndex === index + 1 ? trip : { ...trip, tripIndex: index + 1 },
+    );
+}
+
 function downloadReportHtml(html: string): void {
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -132,6 +192,10 @@ export default function Home() {
     const [tripTime, setTripTime] = useState<string>(() => getDefaultDateTime().time);
     const [trips, setTrips] = useState<Trip[]>([]);
     const [tripsSearched, setTripsSearched] = useState(false);
+    const [earlierLoading, setEarlierLoading] = useState(false);
+    const [laterLoading, setLaterLoading] = useState(false);
+    const [earlierExhausted, setEarlierExhausted] = useState(false);
+    const [laterExhausted, setLaterExhausted] = useState(false);
     const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     const [showDetailedView, setShowDetailedView] = useState(false);
     const [harInstructionsOpen, setHarInstructionsOpen] = useState(false);
@@ -165,6 +229,10 @@ export default function Home() {
     function invalidateAfterJourney() {
         setTrips([]);
         setTripsSearched(false);
+        setEarlierLoading(false);
+        setLaterLoading(false);
+        setEarlierExhausted(false);
+        setLaterExhausted(false);
         setSelectedTrip(null);
         setSegmentsData(null);
         setResult(null);
@@ -207,31 +275,75 @@ export default function Home() {
         setTripsLoading(true);
         setError(null);
         setTrips([]);
+        setEarlierExhausted(false);
+        setLaterExhausted(false);
         setSelectedTrip(null);
         setResult(null);
         setFlowStep("train");
 
         try {
-            const response = await fetch("/api/trips/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fromStation,
-                    toStation,
-                    date: tripDate,
-                    time: tripTime,
-                }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error ?? "Failed to search trips");
-            }
-            setTrips(data.trips || []);
+            const fresh = await fetchTripsFor(fromStation, toStation, tripDate, tripTime);
+            setTrips(withSequentialIndices(sortTrips(fresh)));
             setTripsSearched(true);
         } catch (searchError) {
             setError(getFriendlyErrorMessage(searchError));
         } finally {
             setTripsLoading(false);
+        }
+    }
+
+    /** Load the window of trains before/after the currently listed ones and
+     * merge it into the list. Marks the direction exhausted when the new
+     * window contains no unseen trains. */
+    async function loadMoreTrips(direction: "earlier" | "later"): Promise<void> {
+        if (!fromStation || !toStation || trips.length === 0) return;
+        if (loading || tripsLoading || segmentsLoading) return;
+        if (direction === "earlier") {
+            if (earlierLoading || earlierExhausted) return;
+        } else {
+            if (laterLoading || laterExhausted) return;
+        }
+
+        const setBusy = direction === "earlier" ? setEarlierLoading : setLaterLoading;
+        const setExhausted = direction === "earlier" ? setEarlierExhausted : setLaterExhausted;
+        const boundary = direction === "earlier" ? trips[0] : trips[trips.length - 1];
+        const anchor =
+            direction === "earlier"
+                ? shiftWallClock(boundary.departure.dateTime, -EARLIER_WINDOW_MINUTES)
+                : shiftWallClock(boundary.departure.dateTime, 1);
+
+        setBusy(true);
+        setError(null);
+        try {
+            const incoming = await fetchTripsFor(fromStation, toStation, anchor.date, anchor.time);
+            const existingKeys = new Set(trips.map(stableTripKey));
+            const boundaryDeparture = boundary.departure.dateTime;
+            const fresh = incoming.filter(
+                (trip) =>
+                    trip.departure.dateTime.length > 0 &&
+                    !existingKeys.has(stableTripKey(trip)) &&
+                    (direction === "earlier"
+                        ? trip.departure.dateTime < boundaryDeparture
+                        : trip.departure.dateTime > boundaryDeparture),
+            );
+            if (fresh.length === 0) {
+                setExhausted(true);
+                return;
+            }
+            const merged = withSequentialIndices(sortTrips([...trips, ...fresh]));
+            setTrips(merged);
+            // Keep the selected train selected even when its index shifts.
+            const selectedKey = selectedTrip ? stableTripKey(selectedTrip) : null;
+            if (selectedKey) {
+                const kept = merged.find((trip) => stableTripKey(trip) === selectedKey);
+                if (kept && kept !== selectedTrip) {
+                    setSelectedTrip(kept);
+                }
+            }
+        } catch (loadError) {
+            setError(getFriendlyErrorMessage(loadError));
+        } finally {
+            setBusy(false);
         }
     }
 
@@ -689,7 +801,17 @@ export default function Home() {
                         ))}
                     </div>
                 ) : (
-                    <TripList trips={trips} selectedTrip={selectedTrip} onSelect={handleSelectTrip} />
+                    <TripList
+                        trips={trips}
+                        selectedTrip={selectedTrip}
+                        onSelect={handleSelectTrip}
+                        onLoadEarlier={() => loadMoreTrips("earlier")}
+                        onLoadLater={() => loadMoreTrips("later")}
+                        earlierLoading={earlierLoading}
+                        laterLoading={laterLoading}
+                        earlierExhausted={earlierExhausted}
+                        laterExhausted={laterExhausted}
+                    />
                 )}
             </WizardStep>
         );
