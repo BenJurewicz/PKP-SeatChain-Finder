@@ -65,7 +65,9 @@ export function SeatsView({ query, initialTravelers }: SeatsViewProps) {
         current={RESULTS_STEP_INDEX}
         onStepClick={(index) => {
           if (index === 0) router.push("/");
-          if (index === 1 && journey) router.push(journeyHref(journey));
+          if (index === 1 && journey) {
+            router.push(journeyHref(journey, pipeline.travelers));
+          }
         }}
         className="mx-auto"
       />
@@ -80,7 +82,9 @@ export function SeatsView({ query, initialTravelers }: SeatsViewProps) {
           sourceHarName={`${query.trainName} (${query.departureStationName} → ${query.arrivalStationName})`}
           canRecalculate={pipeline.segmentsData !== null}
           onTravelersChange={syncTravelersToUrl}
-          onChangeTrip={journey ? () => router.push(journeyHref(journey)) : undefined}
+          onChangeTrip={
+            journey ? () => router.push(journeyHref(journey, pipeline.travelers)) : undefined
+          }
           onNewSearch={() => router.push("/")}
         />
       ) : null}
@@ -105,7 +109,10 @@ function SeatLoadError({ journey }: { journey: SeatsQuery["journey"] }) {
         </Alert>
         <div className="flex gap-2">
           {journey ? (
-            <Button variant="outline" onClick={() => router.push(journeyHref(journey))}>
+            <Button
+              variant="outline"
+              onClick={() => router.push(journeyHref(journey, 1))}
+            >
               Back to trains
             </Button>
           ) : null}

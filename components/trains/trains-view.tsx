@@ -9,7 +9,7 @@ import { WizardStep, WizardBackButton } from "@/components/wizard/wizard-step";
 import { TripList } from "@/components/trip-list";
 import { searchTrips } from "@/lib/api";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
-import { seatsHref } from "@/lib/journey-params";
+import { journeyHref, seatsHref } from "@/lib/journey-params";
 import {
   EARLIER_WINDOW_MINUTES,
   stableTripKey,
@@ -24,11 +24,13 @@ interface TrainsViewProps {
   journey: JourneyQuery;
   /** Server-fetched initial window of trains. */
   initialTrips: Trip[];
+  /** Travelers count carried through from a shared /seats link. */
+  travelers: number;
 }
 
 /** Second question: which train. Server-fetched list, expandable backwards
  * and forwards; selecting a train deep-links to /seats. */
-export function TrainsView({ journey, initialTrips }: TrainsViewProps) {
+export function TrainsView({ journey, initialTrips, travelers }: TrainsViewProps) {
   const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>(() =>
     withSequentialIndices(sortTrips(initialTrips)),
@@ -91,7 +93,7 @@ export function TrainsView({ journey, initialTrips }: TrainsViewProps) {
     <>
       <WizardProgress
         current={1}
-        onStepClick={(index) => index === 0 && router.push("/")}
+        onStepClick={(index) => index === 0 && router.push(journeyHref(journey, travelers))}
         className="mx-auto"
       />
       <WizardStep
@@ -116,7 +118,7 @@ export function TrainsView({ journey, initialTrips }: TrainsViewProps) {
         <TripList
           trips={trips}
           selectedTrip={null}
-          onSelect={(trip) => router.push(seatsHref(trip, journey, 1))}
+          onSelect={(trip) => router.push(seatsHref(trip, journey, travelers))}
           onLoadEarlier={() => loadMoreTrips("earlier")}
           onLoadLater={() => loadMoreTrips("later")}
           earlierLoading={earlierLoading}
