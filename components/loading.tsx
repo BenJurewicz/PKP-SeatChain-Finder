@@ -7,11 +7,11 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 interface LoadingButtonLabelProps {
-  loading: boolean;
-  loadingText: string;
+  loading?: boolean;
+  loadingText?: string;
   text: React.ReactNode;
   icon?: React.ReactNode;
-  /** Explicit tailwind size class for the icon; defaults to size-4. */
+  /** Explicit tailwind size class for the spinner while loading. */
   className?: string;
 }
 
