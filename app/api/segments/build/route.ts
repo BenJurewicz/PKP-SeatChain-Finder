@@ -1,6 +1,5 @@
 import { buildSegmentsOutput } from "@/lib/bilkom";
 import { buildHarConfigFromSegmentRequest } from "@/lib/segment-request";
-import type { JsonObject } from "@/lib/types";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
 import { errorResponse } from "@/app/api/_lib";
 

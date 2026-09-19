@@ -61,11 +61,6 @@ function renderTimeline(
         })
         .join("");
 
-      const arrows = groups
-        .slice(0, -1)
-        .map(() => `<div class="timeline-arrow">→</div>`)
-        .join("");
-
       return `
       <section class="traveler-section">
         <h3 class="traveler-title">Traveler ${traveler.travelerIndex}</h3>
