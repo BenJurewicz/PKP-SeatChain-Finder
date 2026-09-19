@@ -14,9 +14,32 @@ pnpm dev              # Start dev server (http://localhost:3000)
 pnpm build            # Production build
 pnpm start            # Run production build
 pnpm lint             # Run ESLint (run before committing)
+pnpm test             # Run vitest unit tests (tests/)
 ```
 
 # Key Conventions
+
+## Locale
+
+The site targets the Polish locale:
+- Weeks start on Monday; calendar labels are Polish (pass `pl` from
+  date-fns to the shadcn Calendar — see `components/date-time-picker.tsx`)
+- Times are 24-hour ("HH:MM"), never AM/PM
+
+## Routing
+
+The flow is split across routes; wizard state is encoded in URL search
+params so any view can be linked or refreshed:
+
+- `/` — journey search form (from/to/when)
+- `/trains?j=…` — train list, server-fetched from the journey param
+- `/seats?t=…&travelers=n` — per-train seat results, re-fetched live
+- `/import` — HAR capture replay, results render in place
+
+`lib/journey-params.ts` is the seam: encode/decode `j`/`t` params there;
+never hand-build the JSON params in pages. The seat-chain pipeline state
+(fetched segments, special filters, chains) lives in
+`components/hooks/use-seat-pipeline.ts`, shared by `/seats` and `/import`.
 
 ## Time Formatting
 
