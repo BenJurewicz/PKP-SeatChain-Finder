@@ -65,9 +65,11 @@ export function SeatResults({
         onTravelersChange={onTravelersChange ?? pipeline.setTravelers}
         onRecalculate={canRecalculate ? pipeline.recalculate : undefined}
         recalcLoading={recalcBusy}
-        onDownload={() => {
-          if (output.reportHtml) downloadReportHtml(output.reportHtml);
-        }}
+        onDownload={
+          output.reportHtml
+            ? () => downloadReportHtml(output.reportHtml)
+            : undefined
+        }
         onChangeTrip={onChangeTrip}
         onNewSearch={onNewSearch}
       />

@@ -58,7 +58,7 @@ export default function ImportPage() {
         canRecalculate={pipeline.segmentsData !== null}
         onNewSearch={() => {
           resetAll();
-          router.refresh();
+          pipeline.reset();
         }}
       />
     );

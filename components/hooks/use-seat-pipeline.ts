@@ -47,6 +47,8 @@ export interface SeatPipeline {
   adoptSegments: (segments: SegmentsOutput, tripInfo?: TripInfo) => void;
   /** Adopt a fully prebuilt HAR pipeline response (segments may be absent). */
   adoptHarResponse: (response: HarRunResponse) => void;
+  /** Clear all pipeline state (back to the upload form / fresh search). */
+  reset: () => void;
   /** Rebuild chains with the current travelers and filters. */
   recalculate: () => Promise<void>;
 }
@@ -217,6 +219,18 @@ export function useSeatPipeline(initialTravelers = 1): SeatPipeline {
     [adoptSegments],
   );
 
+  /** Clear all pipeline state (back to the upload form / fresh search). */
+  const reset = useCallback(() => {
+    buildGeneration.current += 1;
+    setSegmentsData(null);
+    setDetectedProperties([]);
+    setSpecialFiltersState({});
+    setInitialFilters({});
+    setOutput(null);
+    setTripInfo(null);
+    setError(null);
+  }, []);
+
   const recalculate = useCallback(async () => {
     if (!segmentsData) return;
     await rebuild(segmentsData, tripInfo, travelers, specialFilters, true);
@@ -238,6 +252,7 @@ export function useSeatPipeline(initialTravelers = 1): SeatPipeline {
     loadSegments,
     adoptSegments,
     adoptHarResponse,
+    reset,
     recalculate,
   };
 }

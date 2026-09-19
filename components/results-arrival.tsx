@@ -20,7 +20,7 @@ interface ResultsArrivalProps {
     onTravelersChange: (value: number) => void;
     onRecalculate?: () => void;
     recalcLoading?: boolean;
-    onDownload: () => void;
+    onDownload?: () => void;
     /** Back to the train choice (live search only). */
     onChangeTrip?: () => void;
     /** Full restart of the flow. */
@@ -98,10 +98,12 @@ export function ResultsArrival({
                                 Change train
                             </Button>
                         ) : null}
-                        <Button variant="outline" size="sm" onClick={onDownload}>
-                            <Download className="mr-1.5 h-4 w-4" />
-                            Report
-                        </Button>
+                        {onDownload ? (
+                            <Button variant="outline" size="sm" onClick={onDownload}>
+                                <Download className="mr-1.5 h-4 w-4" />
+                                Report
+                            </Button>
+                        ) : null}
                         <Button variant="outline" size="sm" onClick={onNewSearch}>
                             <RotateCcw className="mr-1.5 h-4 w-4" />
                             Start over
