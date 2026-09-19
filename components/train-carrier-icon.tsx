@@ -26,30 +26,37 @@ const CARRIER_NAMES: Record<string, string> = {
 };
 
 export function TrainCarrierIcon({ carrierId, className }: TrainCarrierIconProps) {
-  const upperCarrierId = carrierId.toUpperCase();
+  const upperCarrierId = carrierId.trim().toUpperCase();
   const iconSrc = CARRIER_ICONS[upperCarrierId];
   const colorClasses = CARRIER_COLORS[upperCarrierId];
 
-  if (iconSrc) {
-    return (
-      <img
-        src={iconSrc}
-        alt={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
-        className={cn("h-6 w-auto", className)}
-      />
-    );
+  // The train name already contains the numeric train number (e.g. "IC 1546").
+  // A pill showing a numeric carrier id would duplicate that number, so only
+  // alphabetic carrier types (EIP, IC, TLK, …) get the colored type pill.
+  const showTypePill = upperCarrierId !== "" && !/^\d+$/.test(upperCarrierId);
+
+  if (!showTypePill) {
+    return null;
   }
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold",
-        colorClasses || "bg-muted text-foreground border-border",
-        className
-      )}
-      title={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
-    >
-      {upperCarrierId}
+    <span className={cn("inline-flex flex-none items-center gap-1.5", className)}>
+      {iconSrc ? (
+        <img
+          src={iconSrc}
+          alt={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
+          className="h-6 w-auto"
+        />
+      ) : null}
+      <span
+        className={cn(
+          "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold",
+          colorClasses || "bg-muted text-foreground border-border",
+        )}
+        title={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
+      >
+        {upperCarrierId}
+      </span>
     </span>
   );
 }

@@ -742,7 +742,7 @@ export default function Home() {
                     <div className="flex items-center gap-4 rounded-2xl border bg-muted/40 p-4">
                         <TrainCarrierIcon
                             carrierId={selectedTrip.carrierId}
-                            className="h-7 w-auto flex-none"
+                            className="flex-none"
                         />
                         <div className="min-w-0 flex-1">
                             <div className="truncate font-semibold">{selectedTrip.trainName}</div>

@@ -75,7 +75,6 @@ export function ResultsArrival({
                                 <>
                                     <TrainCarrierIcon
                                         carrierId={tripInfo.carrierId}
-                                        className="h-5 w-auto"
                                     />
                                     <span className="font-semibold text-foreground">
                                         {tripInfo.trainName}
