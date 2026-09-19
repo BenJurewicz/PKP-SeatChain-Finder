@@ -95,3 +95,12 @@ export function toPolishIsoString(date: Date): string {
   
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
 }
+/**
+ * Current Warsaw wall-clock date ("YYYY-MM-DD") and time ("HH:MM"),
+ * for default search input values.
+ */
+export function nowPolish(): { date: string; time: string } {
+  const iso = toPolishIsoString(new Date());
+  const [date, time] = iso.split('T');
+  return { date, time: time.slice(0, 5) };
+}

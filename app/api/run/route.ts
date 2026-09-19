@@ -74,6 +74,7 @@ export async function POST(request: Request): Promise<Response> {
       detectedSpecialProperties,
       tripInfo: {
         trainName: tripSummary.trainName,
+        trainNumber: tripSummary.trainNumber,
         carrierId: tripSummary.carrierId,
         departureStation: tripSummary.departureStation,
         arrivalStation: tripSummary.arrivalStation,

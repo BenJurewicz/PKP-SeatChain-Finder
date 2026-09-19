@@ -50,6 +50,7 @@ export interface TripStop {
   track?: string;
 }
 
+/** A single direct TRAIN leg as parsed from the podroz page. */
 export interface Trip {
   tripIndex: number;
   trainName: string;
@@ -67,7 +68,30 @@ export interface Trip {
   };
   duration: number;
   stops: TripStop[];
-  segmentRequest: JsonObject;
+  segmentRequest: TripSegmentRequest;
+}
+
+/** Payload the seat-map (GRM) endpoint needs for one train's full journey. */
+export interface TripSegmentRequest {
+  stationFrom: number;
+  stationTo: number;
+  stationNumberingSystem: string;
+  vehicleNumber: number;
+  departureDate: string;
+  arrivalDate: string;
+  type: string;
+}
+
+/** Train identity + timing for display and deep links. */
+export interface TripInfo {
+  trainName: string;
+  trainNumber: string;
+  carrierId: string;
+  departureStation: string;
+  arrivalStation: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: number;
 }
 
 /**

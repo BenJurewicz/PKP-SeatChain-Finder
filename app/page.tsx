@@ -6,13 +6,14 @@ import type { SeatChainOutput } from "@/lib/seat-chain";
 import type {
     Station,
     Trip,
+    TripInfo,
     SeatRelease,
     SegmentsOutput,
     SpecialSeatProperty,
     SpecialSeatFilters,
 } from "@/lib/types";
 import type { TripSummary } from "@/lib/report";
-import type { TripInfo } from "@/components/results-arrival";
+
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,7 +46,16 @@ import {
     ArrowRight,
 } from "lucide-react";
 import { getFriendlyErrorMessage } from "@/lib/error-messages";
-import { toPolishIsoString } from "@/lib/formatting";
+import { nowPolish } from "@/lib/formatting";
+import { searchTrips, buildSegments, runHarFile, initialSpecialFilters } from "@/lib/api";
+import { downloadReportHtml } from "@/lib/report-download";
+import {
+    EARLIER_WINDOW_MINUTES,
+    stableTripKey,
+    sortTrips,
+    withSequentialIndices,
+    shiftWallClock,
+} from "@/lib/trip-utils";
 import { detectSpecialSeatProperties } from "@/lib/seat-chain";
 import {
     getCoverage,
@@ -67,85 +77,6 @@ type RunResponse = {
     seatReleases?: SeatRelease[];
     tripInfo?: TripInfo;
 };
-
-/** How far back the "See earlier trains" window reaches, in minutes.
- * The podroz endpoint has no pagination, so earlier/later loading re-runs
- * the search anchored outside the currently listed window. */
-const EARLIER_WINDOW_MINUTES = 120;
-
-/** Shift a Warsaw wall-clock ISO string ("YYYY-MM-DDTHH:MM:SS") by whole
- * minutes while keeping the same wall-clock reading (DST-agnostic:
- * arithmetic happens on the displayed time, not on an absolute instant). */
-function shiftWallClock(iso: string, minutes: number): { date: string; time: string } {
-    const [datePart, timePart] = iso.split("T");
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour, minute] = timePart.split(":").map(Number);
-    const shifted = new Date(Date.UTC(year, month - 1, day, hour + 0, minute + minutes));
-    const pad = (value: number) => String(value).padStart(2, "0");
-    return {
-        date: `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`,
-        time: `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`,
-    };
-}
-
-async function fetchTripsFor(
-    fromStation: Station,
-    toStation: Station,
-    date: string,
-    time: string,
-): Promise<Trip[]> {
-    const response = await fetch("/api/trips/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fromStation, toStation, date, time }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.error ?? "Failed to search trips");
-    }
-    return (data.trips as Trip[]) ?? [];
-}
-
-/** Identity that survives re-indexing across windowed searches. */
-function stableTripKey(trip: Trip): string {
-    return `${trip.trainNumber}|${trip.departure.dateTime}|${trip.arrival.dateTime}`;
-}
-
-function sortTrips(list: Trip[]): Trip[] {
-    return [...list].sort(
-        (a, b) =>
-            a.departure.dateTime.localeCompare(b.departure.dateTime) ||
-            a.arrival.dateTime.localeCompare(b.arrival.dateTime) ||
-            a.trainNumber.localeCompare(b.trainNumber),
-    );
-}
-
-/** tripIndex is per-search in the parser; make it sequential after merging
- * windows so React keys and selection comparisons stay unique. */
-function withSequentialIndices(list: Trip[]): Trip[] {
-    return list.map((trip, index) =>
-        trip.tripIndex === index + 1 ? trip : { ...trip, tripIndex: index + 1 },
-    );
-}
-
-function downloadReportHtml(html: string): void {
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "seat-chain-report.html";
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-}
-
-function getDefaultDateTime(): { date: string; time: string } {
-    // Warsaw-local "now", not UTC — toISOString/toTimeString ignore Europe/Warsaw.
-    const polish = toPolishIsoString(new Date());
-    const [date, time] = polish.split("T");
-    return { date, time: time.slice(0, 5) };
-}
 
 function ResultsLoadingSkeleton() {
     return (
@@ -188,8 +119,8 @@ export default function Home() {
 
     const [fromStation, setFromStation] = useState<Station | null>(null);
     const [toStation, setToStation] = useState<Station | null>(null);
-    const [tripDate, setTripDate] = useState<string>(() => getDefaultDateTime().date);
-    const [tripTime, setTripTime] = useState<string>(() => getDefaultDateTime().time);
+    const [tripDate, setTripDate] = useState<string>(() => nowPolish().date);
+    const [tripTime, setTripTime] = useState<string>(() => nowPolish().time);
     const [trips, setTrips] = useState<Trip[]>([]);
     const [tripsSearched, setTripsSearched] = useState(false);
     const [earlierLoading, setEarlierLoading] = useState(false);
@@ -282,7 +213,7 @@ export default function Home() {
         setFlowStep("train");
 
         try {
-            const fresh = await fetchTripsFor(fromStation, toStation, tripDate, tripTime);
+            const fresh = await searchTrips(fromStation, toStation, tripDate, tripTime);
             setTrips(withSequentialIndices(sortTrips(fresh)));
             setTripsSearched(true);
         } catch (searchError) {
@@ -315,7 +246,7 @@ export default function Home() {
         setBusy(true);
         setError(null);
         try {
-            const incoming = await fetchTripsFor(fromStation, toStation, anchor.date, anchor.time);
+            const incoming = await searchTrips(fromStation, toStation, anchor.date, anchor.time);
             const existingKeys = new Set(trips.map(stableTripKey));
             const boundaryDeparture = boundary.departure.dateTime;
             const fresh = incoming.filter(
@@ -357,15 +288,7 @@ export default function Home() {
         setError(null);
 
         try {
-            const response = await fetch("/api/segments/build", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ segmentRequest: trip.segmentRequest }),
-            });
-            const segmentsData = await response.json();
-            if (!response.ok) {
-                throw new Error(segmentsData.error ?? "Failed to build segments");
-            }
+            const segmentsData = await buildSegments(trip.segmentRequest);
 
             // Apply the initial special-seat filter state (all excluded) to the
             // very first calculation too — otherwise seats carrying special
@@ -373,10 +296,7 @@ export default function Home() {
             // chain here but vanish the moment any recalculation applies the
             // filters, making seats the user saw assigned suddenly disappear.
             const detected = Array.from(detectSpecialSeatProperties(segmentsData));
-            const initialFilterState: SpecialSeatFilters = {};
-            for (const prop of detected) {
-                initialFilterState[prop] = false;
-            }
+            const initialFilterState = initialSpecialFilters(detected);
 
             setSegmentsData(segmentsData);
             setDetectedProperties(detected);
@@ -427,15 +347,7 @@ export default function Home() {
                 segmentsData,
                 detectedSpecialProperties: detectedProperties,
                 seatReleases,
-                tripInfo: {
-                    trainName: selectedTrip.trainName,
-                    carrierId: selectedTrip.carrierId,
-                    departureStation: selectedTrip.departure.stationName,
-                    arrivalStation: selectedTrip.arrival.stationName,
-                    departureTime: selectedTrip.departure.dateTime,
-                    arrivalTime: selectedTrip.arrival.dateTime,
-                    duration: selectedTrip.duration,
-                },
+                tripInfo: tripSummary,
             });
             setResultSource("search");
             setFlowStep("results");
@@ -482,21 +394,7 @@ export default function Home() {
         setResult(null);
 
         try {
-            const formData = new FormData();
-            formData.set("harFile", harFile);
-            formData.set("travelers", String(travelers));
-
-            const response = await fetch("/api/run", {
-                method: "POST",
-                body: formData,
-            });
-            const data = (await response.json()) as Partial<RunResponse> & { error?: string };
-            if (!response.ok) {
-                throw new Error(data.error ?? "Pipeline failed");
-            }
-            if (!data.seatChain || !data.travelerViews || !data.reportHtml || !data.sourceHarName) {
-                throw new Error("Invalid API response");
-            }
+            const data = await runHarFile(harFile, travelers);
 
             setResult({
                 seatChain: data.seatChain,
@@ -515,10 +413,7 @@ export default function Home() {
                     Array.from(detectSpecialSeatProperties(data.segmentsData));
                 setSegmentsData(data.segmentsData);
                 setDetectedProperties(detected);
-                const initialFilterState: SpecialSeatFilters = {};
-                for (const prop of detected) {
-                    initialFilterState[prop] = false;
-                }
+                const initialFilterState = initialSpecialFilters(detected);
                 setSpecialFilters(initialFilterState);
                 setInitialFilters(initialFilterState);
             }

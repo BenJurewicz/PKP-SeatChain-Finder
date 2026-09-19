@@ -1,5 +1,4 @@
-import type { HarRequestConfig, JsonValue } from "@/lib/types";
-import { requireObject, requireJsonObject } from "@/lib/parsing";
+import { requireObject, asJsonObject } from "@/lib/parsing";
 
 function deriveGrmUrls(grmUrl: string): {
   grmUrl: string;
@@ -75,12 +74,15 @@ export function parseHarRequestConfig(harText: string): HarRequestConfig {
   } catch (error) {
     throw new Error(`HAR postData.text is not valid JSON: ${(error as Error).message}`);
   }
-  const payload = requireJsonObject(payloadParsed, "HAR payload");
+  const payload = asJsonObject(payloadParsed);
+  if (!payload) {
+    throw new Error("HAR postData.text is not a JSON object");
+  }
 
   const urls = deriveGrmUrls(grmUrlRaw);
   return {
     ...urls,
     headers,
-    payload: payload as { [key: string]: JsonValue },
+    payload,
   };
 }

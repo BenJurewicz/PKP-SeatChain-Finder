@@ -39,43 +39,6 @@ export function requireObject(value: unknown, label: string): Record<string, unk
   return value as Record<string, unknown>;
 }
 
-/**
- * Safely casts an unknown value to a JsonObject, returning null if invalid.
- * JsonObject is an object with string keys and JsonValue values.
- */
 export function asJsonObject(value: unknown): JsonObject | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  return value as JsonObject;
-}
-
-/**
- * Safely casts an unknown value to a JsonObject, throwing if invalid.
- */
-export function requireJsonObject(value: unknown, label: string): JsonObject {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`Invalid JSON object for ${label}`);
-  }
-  return value as JsonObject;
-}
-
-/**
- * Safely casts an unknown value to an array, returning null if invalid.
- */
-export function asArray(value: unknown): unknown[] | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-  return value;
-}
-
-/**
- * Safely casts an unknown value to an array, throwing if invalid.
- */
-export function requireArray(value: unknown, label: string): unknown[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`Invalid array for ${label}`);
-  }
-  return value;
+  return asObject(value) as JsonObject | null;
 }

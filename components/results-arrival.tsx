@@ -6,18 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NumberStepper } from "@/components/number-stepper";
 import { CoverageProgress } from "@/components/coverage-progress";
+import type { TripInfo } from "@/lib/types";
 import type { CoverageStats } from "@/lib/view-model";
 import { formatTime, formatDate, formatDuration } from "@/lib/formatting";
-
-export interface TripInfo {
-    trainName: string;
-    carrierId: string;
-    departureStation: string;
-    arrivalStation: string;
-    departureTime: string;
-    arrivalTime: string;
-    duration: number;
-}
 
 interface ResultsArrivalProps {
     tripInfo: TripInfo | undefined;

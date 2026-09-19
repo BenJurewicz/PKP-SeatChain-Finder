@@ -4,44 +4,7 @@ import {
   BILKOM_TRIP_SEARCH_URL,
   DEFAULT_SEARCH_HEADERS,
 } from "./constants";
-import type { Station } from "./types";
-
-export interface TripStop {
-  stationId: string;
-  stationName: string;
-  arrivalDate: string | null;
-  departureDate: string | null;
-  platform?: string;
-  track?: string;
-}
-
-export interface Trip {
-  tripIndex: number;
-  trainName: string;
-  trainNumber: string;
-  carrierId: string;
-  departure: {
-    stationId: string;
-    stationName: string;
-    dateTime: string;
-  };
-  arrival: {
-    stationId: string;
-    stationName: string;
-    dateTime: string;
-  };
-  duration: number;
-  stops: TripStop[];
-  segmentRequest: {
-    stationFrom: number;
-    stationTo: number;
-    stationNumberingSystem: string;
-    vehicleNumber: number;
-    departureDate: string;
-    arrivalDate: string;
-    type: string;
-  };
-}
+import type { Station, Trip, TripStop } from "./types";
 
 interface JourneyLegStop {
   type?: string;
