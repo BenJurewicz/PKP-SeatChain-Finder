@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MapPin, Loader2 } from "lucide-react";
+import { MapPin } from "lucide-react";
+import { Spinner } from "@/components/loading";
 import type { Station } from "@/lib/types";
 
 interface StationInputProps {
@@ -130,7 +131,7 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
         />
         <div className={cn("absolute right-3 top-1/2 -translate-y-1/2")}>
           {loading ? (
-            <Loader2 className={cn("animate-spin text-muted-foreground", large ? "h-5 w-5" : "h-4 w-4")} />
+            <Spinner className={cn("text-muted-foreground", large ? "h-5 w-5" : "h-4 w-4")} />
           ) : (
             <MapPin className={cn("text-muted-foreground", large ? "h-5 w-5" : "h-4 w-4")} />
           )}

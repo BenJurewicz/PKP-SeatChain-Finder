@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface TrainCarrierIconProps {
@@ -7,10 +8,10 @@ interface TrainCarrierIconProps {
   className?: string;
 }
 
-const CARRIER_ICONS: Record<string, string> = {
-  EIP: "/icons/eip.svg",
-  IC: "/icons/ic.svg",
-  TLK: "/icons/tlk.svg",
+const CARRIER_ICONS: Record<string, { src: string; width: number; height: number }> = {
+  EIP: { src: "/icons/eip.svg", width: 32, height: 24 },
+  IC: { src: "/icons/ic.svg", width: 22, height: 24 },
+  TLK: { src: "/icons/tlk.svg", width: 26, height: 16 },
 };
 
 const CARRIER_COLORS: Record<string, string> = {
@@ -27,18 +28,20 @@ const CARRIER_NAMES: Record<string, string> = {
 
 export function TrainCarrierIcon({ carrierId, className }: TrainCarrierIconProps) {
   const upperCarrierId = carrierId.trim().toUpperCase();
-  const iconSrc = CARRIER_ICONS[upperCarrierId];
+  const icon = CARRIER_ICONS[upperCarrierId];
   const colorClasses = CARRIER_COLORS[upperCarrierId];
 
   // Known carriers (EIP/IC/TLK) render their brand logo — no extra pill needed.
   // The colored type pill is the fallback for carriers without a logo asset.
   // A numeric carrier id is just the train number (already shown in the train
   // name), so nothing is rendered for it.
-  if (iconSrc) {
+  if (icon) {
     return (
-      <img
-        src={iconSrc}
+      <Image
+        src={icon.src}
         alt={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
+        width={icon.width}
+        height={icon.height}
         className={cn("h-6 w-auto flex-none", className)}
       />
     );

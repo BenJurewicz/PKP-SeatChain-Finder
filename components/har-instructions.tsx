@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
+import { CollapsibleCard } from "@/components/collapsible-card";
 
 interface HarInstructionsProps {
     open?: boolean;
@@ -9,23 +10,13 @@ interface HarInstructionsProps {
 
 export function HarInstructions({ open, onOpenChange }: HarInstructionsProps) {
     return (
-        <div className="overflow-hidden rounded-lg border bg-muted/40">
-            <button
-                type="button"
-                aria-expanded={open ?? false}
-                onClick={() => onOpenChange?.(!(open ?? false))}
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium"
-            >
-                <span>How to capture the HAR file</span>
-                <ChevronDown
-                    className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform ${
-                        open ? "rotate-180" : ""
-                    }`}
-                />
-            </button>
-            {open && (
-                <div className="border-t px-4 py-4 text-sm">
-                    <ol className="list-decimal space-y-2 pl-4">
+        <CollapsibleCard
+            title="How to capture the HAR file"
+            open={open ?? false}
+            onOpenChange={(value) => onOpenChange?.(value)}
+        >
+            <div className="text-sm">
+                <ol className="list-decimal space-y-2 pl-4">
                         <li>
                             Go to{" "}
                             <a
@@ -71,8 +62,7 @@ export function HarInstructions({ open, onOpenChange }: HarInstructionsProps) {
                             file below.
                         </li>
                     </ol>
-                </div>
-            )}
-        </div>
+            </div>
+        </CollapsibleCard>
     );
 }

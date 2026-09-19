@@ -16,8 +16,10 @@ import type { TripSummary } from "@/lib/report";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { Field } from "@/components/form-field";
+import { LoadingButtonLabel, Spinner } from "@/components/loading";
+import { ResultsSkeleton, TripListSkeleton } from "@/components/skeletons";
 import { FileUpload } from "@/components/file-upload";
 import { StationInput } from "@/components/station-input";
 import { DateTimePicker } from "@/components/date-time-picker";
@@ -77,33 +79,6 @@ type RunResponse = {
     seatReleases?: SeatRelease[];
     tripInfo?: TripInfo;
 };
-
-function ResultsLoadingSkeleton() {
-    return (
-        <div className="mx-auto w-full max-w-3xl space-y-4">
-            <Card>
-                <CardContent className="py-6">
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="mt-3 h-4 w-64" />
-                </CardContent>
-            </Card>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                    <Card key={i}>
-                        <CardContent className="py-6">
-                            <Skeleton className="h-16 w-full" />
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-            <Card>
-                <CardContent className="py-6">
-                    <Skeleton className="h-48 w-full" />
-                </CardContent>
-            </Card>
-        </div>
-    );
-}
 
 export default function Home() {
     const [flowStep, setFlowStep] = useState<FlowStep>("details");
@@ -577,17 +552,12 @@ export default function Home() {
                             }
                             className="min-w-40"
                         >
-                            {tripsLoading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Finding trains…
-                                </>
-                            ) : (
-                                <>
-                                    <Search className="mr-2 h-4 w-4" />
-                                    Find trains
-                                </>
-                            )}
+                            <LoadingButtonLabel
+                                loading={tripsLoading}
+                                loadingText="Finding trains…"
+                                text="Find trains"
+                                icon={<Search className="mr-2 h-4 w-4" />}
+                            />
                         </Button>
                     </>
                 }
@@ -599,10 +569,7 @@ export default function Home() {
                     }}
                 >
                     <div className="grid items-start gap-4 md:grid-cols-[1fr_auto_1fr]">
-                        <div className="space-y-2">
-                            <label htmlFor="from-station" className="text-sm font-medium">
-                                From
-                            </label>
+                        <Field label="From" htmlFor="from-station">
                             <StationInput
                                 key="wizard-from"
                                 value={fromStation}
@@ -613,15 +580,12 @@ export default function Home() {
                                 placeholder="Departure station…"
                                 disabled={tripsLoading || segmentsLoading}
                             />
-                        </div>
+                        </Field>
                         <ArrowRight
                             aria-hidden="true"
                             className="mx-auto mt-9 hidden h-4 w-4 text-muted-foreground md:block"
                         />
-                        <div className="space-y-2">
-                            <label htmlFor="to-station" className="text-sm font-medium">
-                                To
-                            </label>
+                        <Field label="To" htmlFor="to-station">
                             <StationInput
                                 key="wizard-to"
                                 value={toStation}
@@ -632,7 +596,7 @@ export default function Home() {
                                 placeholder="Destination station…"
                                 disabled={tripsLoading || segmentsLoading}
                             />
-                        </div>
+                        </Field>
                     </div>
                     <div className="mt-4">
                         <DateTimePicker
@@ -685,17 +649,7 @@ export default function Home() {
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 ) : null}
-                {tripsLoading ? (
-                    <div className="space-y-3">
-                        {[1, 2, 3].map((i) => (
-                            <Card key={i}>
-                                <CardContent className="py-4">
-                                    <Skeleton className="h-20 w-full" />
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                ) : (
+                {tripsLoading ? <TripListSkeleton /> : (
                     <TripList
                         trips={trips}
                         selectedTrip={selectedTrip}
@@ -735,22 +689,14 @@ export default function Home() {
                             disabled={loading || segmentsLoading || !segmentsData}
                             className="min-w-40"
                         >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Assigning seats…
-                                </>
-                            ) : segmentsLoading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Fetching seat map…
-                                </>
-                            ) : (
-                                <>
-                                    <Armchair className="mr-2 h-4 w-4" />
-                                    Find my seats
-                                </>
-                            )}
+                            <LoadingButtonLabel
+                                loading={loading || segmentsLoading}
+                                loadingText={
+                                    loading ? "Assigning seats…" : "Fetching seat map…"
+                                }
+                                text="Find my seats"
+                                icon={<Armchair className="mr-2 h-4 w-4" />}
+                            />
                         </Button>
                     </>
                 }
@@ -785,7 +731,7 @@ export default function Home() {
                     <p className="text-xs text-muted-foreground">Between 1 and 20 travelers</p>
                     {segmentsLoading ? (
                         <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Spinner className="h-4 w-4" />
                             Fetching the live seat map for this train…
                         </p>
                     ) : null}
@@ -825,14 +771,11 @@ export default function Home() {
                         </div>
                     </div>
                     <Button type="submit" disabled={loading} className="w-full sm:w-56">
-                        {loading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Building seat chains…
-                            </>
-                        ) : (
-                            "Build seat chains"
-                        )}
+                        <LoadingButtonLabel
+                            loading={loading}
+                            loadingText="Building seat chains…"
+                            text="Build seat chains"
+                        />
                     </Button>
                     {error ? (
                         <Alert variant="destructive">
@@ -875,7 +818,7 @@ export default function Home() {
                     {stepContent}
                     {loading && flowStep === "har" && !result ? (
                         <div className="mt-6">
-                            <ResultsLoadingSkeleton />
+                            <ResultsSkeleton />
                         </div>
                     ) : null}
                 </div>

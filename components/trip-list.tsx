@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Clock, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Spinner } from "@/components/loading";
 import { TrainCarrierIcon } from "@/components/train-carrier-icon";
 import type { Trip } from "@/lib/types";
 import { formatDuration, formatTime, formatDate } from "@/lib/formatting";
@@ -97,7 +98,7 @@ function TripWindowButton({ label, icon, loading, exhausted, disabled, onClick }
       onClick={onClick}
       disabled={disabled || loading || exhausted}
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      {loading ? <Spinner className="h-4 w-4" /> : icon}
       {label}
     </Button>
   );

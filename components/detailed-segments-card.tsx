@@ -1,8 +1,6 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,11 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, XCircle, ChevronDown } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { CollapsibleCard } from "@/components/collapsible-card";
+import { Pill } from "@/components/pill";
 import { parseSeat } from "@/lib/utils";
 import { formatTime } from "@/lib/formatting";
 import { isMultiChainOutput, type SeatChainOutput } from "@/lib/seat-chain";
-import { cn } from "@/lib/utils";
 
 interface DetailedSegmentsCardProps {
   seatChain: SeatChainOutput;
@@ -25,46 +24,31 @@ interface DetailedSegmentsCardProps {
 
 function StatusBadge({ collisionFree }: { collisionFree: boolean }) {
   return collisionFree ? (
-    <Badge
-      variant="outline"
-      className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-    >
+    <Pill tone="emerald">
       <CheckCircle2 className="h-3 w-3" />
       OK
-    </Badge>
+    </Pill>
   ) : (
-    <Badge variant="destructive" className="gap-1">
+    <Pill tone="red">
       <XCircle className="h-3 w-3" />
       Collision
-    </Badge>
+    </Pill>
   );
 }
 
 export function DetailedSegmentsCard({ seatChain, open, onToggle }: DetailedSegmentsCardProps) {
   return (
-    <Card className="py-0">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 p-6 text-left"
-      >
-        <span>
-          <CardTitle className="text-base">Detailed segment view</CardTitle>
-          <CardDescription className="mt-1">
-            Per-segment breakdown of seat assignments
-          </CardDescription>
+    <CollapsibleCard
+      title="Detailed segment view"
+      meta={
+        <span className="hidden text-sm font-normal text-muted-foreground sm:inline">
+          Per-segment breakdown of seat assignments
         </span>
-        <ChevronDown
-          className={cn(
-            "h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-      {open && (
-        <CardContent className="pt-0">
-          <div className="overflow-x-auto rounded-lg border">
+      }
+      open={open}
+      onOpenChange={() => onToggle()}
+    >
+      <div className="overflow-x-auto rounded-lg border">
             {isMultiChainOutput(seatChain) ? (
               <Table>
                 <TableHeader>
@@ -156,8 +140,6 @@ export function DetailedSegmentsCard({ seatChain, open, onToggle }: DetailedSegm
               </Table>
             )}
           </div>
-        </CardContent>
-      )}
-    </Card>
+    </CollapsibleCard>
   );
 }
