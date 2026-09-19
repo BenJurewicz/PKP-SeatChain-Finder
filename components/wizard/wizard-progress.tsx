@@ -5,16 +5,16 @@ import { Check, MapPinCheckInside } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface WizardStepDef {
-    key: "details" | "train" | "travelers";
+    key: "details" | "train";
     label: string;
     question: string;
 }
 
-/** The questions of the guided flow, in order. Results are the terminus. */
+/** The questions of the guided flow, in order. Travelers are chosen on the
+ * seats page itself; results are the terminus. */
 export const WIZARD_STEPS: WizardStepDef[] = [
     { key: "details", label: "Journey", question: "Where and when do you travel?" },
     { key: "train", label: "Train", question: "Which train suits you?" },
-    { key: "travelers", label: "Travelers", question: "How many travelers?" },
 ];
 
 export const RESULTS_STEP_INDEX = WIZARD_STEPS.length;

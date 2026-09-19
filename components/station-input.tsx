@@ -12,12 +12,11 @@ interface StationInputProps {
   onChange: (station: Station | null) => void;
   placeholder?: string;
   disabled?: boolean;
-  onTopSuggestion?: (station: Station | null) => void;
   /** Large single-question wizard style. */
   large?: boolean;
 }
 
-export function StationInput({ value, onChange, placeholder, disabled, onTopSuggestion, large = false }: StationInputProps) {
+export function StationInput({ value, onChange, placeholder, disabled, large = false }: StationInputProps) {
   const [query, setQuery] = useState("");
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,9 +107,6 @@ export function StationInput({ value, onChange, placeholder, disabled, onTopSugg
         
         if (matchesQuery || isOpen) {
           handleSelect(topSuggestion);
-          if (onTopSuggestion) {
-            onTopSuggestion(topSuggestion);
-          }
         }
       }
     }, 150);

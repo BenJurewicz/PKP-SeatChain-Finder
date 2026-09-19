@@ -5,7 +5,6 @@ import type {
   SpecialSeatProperty,
   SpecialSeatFilters,
 } from "@/lib/types";
-import { detectSpecialSeatProperties } from "@/lib/seat-chain";
 import type { TravelerView } from "@/lib/instructions";
 import type { SeatChainOutput } from "@/lib/seat-chain";
 import type { TripInfo } from "@/lib/types";
@@ -87,9 +86,4 @@ export function initialSpecialFilters(detected: Iterable<SpecialSeatProperty>): 
     filters[prop] = false;
   }
   return filters;
-}
-
-/** Build initial filter state straight from a segments payload. */
-export function initialSpecialFiltersFromSegments(data: SegmentsOutput): SpecialSeatFilters {
-  return initialSpecialFilters(Array.from(detectSpecialSeatProperties(data)));
 }
