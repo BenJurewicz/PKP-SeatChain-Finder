@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, ArrowRight, FileInput } from "lucide-react";
@@ -21,9 +21,21 @@ export function JourneyDetailsForm() {
   const router = useRouter();
   const [fromStation, setFromStation] = useState<Station | null>(null);
   const [toStation, setToStation] = useState<Station | null>(null);
-  const [tripDate, setTripDate] = useState<string>(() => nowPolish().date);
-  const [tripTime, setTripTime] = useState<string>(() => nowPolish().time);
+  // Defaults are applied after mount: the home page is statically
+  // prerendered, so a render-time "now" would differ between server HTML
+  // and client hydration (and would be wrong after the build day anyway).
+  const [tripDate, setTripDate] = useState<string>("");
+  const [tripTime, setTripTime] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Intentional one-shot initialization: the server HTML cannot know the
+    // client's current Warsaw time, so defaults are applied post-mount.
+    const now = nowPolish();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration-safe one-shot default
+    setTripDate(now.date);
+    setTripTime(now.time);
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

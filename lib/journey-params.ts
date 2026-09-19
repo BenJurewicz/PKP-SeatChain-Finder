@@ -1,3 +1,4 @@
+import { format, parse } from "date-fns";
 import type { Station, Trip, TripSegmentRequest } from "@/lib/types";
 
 /**
@@ -57,6 +58,13 @@ function isValidSegmentRequest(value: unknown): value is TripSegmentRequest {
   );
 }
 
+/** Shape check plus a round-trip so impossible dates ("2026-02-30") are
+ * rejected instead of silently rolling over to the next month. */
+function isValidDateParam(value: string): boolean {
+  const parsed = parse(value, "yyyy-MM-dd", new Date(0));
+  return !Number.isNaN(parsed.getTime()) && format(parsed, "yyyy-MM-dd") === value;
+}
+
 function isValidJourney(value: unknown): value is JourneyQuery {
   if (!value || typeof value !== "object") return false;
   const j = value as JourneyQuery;
@@ -65,6 +73,7 @@ function isValidJourney(value: unknown): value is JourneyQuery {
     isValidStation(j.to) &&
     typeof j.date === "string" &&
     DATE_PATTERN.test(j.date) &&
+    isValidDateParam(j.date) &&
     typeof j.time === "string" &&
     TIME_PATTERN.test(j.time)
   );
@@ -82,9 +91,11 @@ function isValidSeatsQuery(value: unknown): value is SeatsQuery {
   );
 }
 
-/** Build the /trains href for a journey. */
-export function journeyHref(journey: JourneyQuery): string {
-  return `/trains?j=${encodeURIComponent(JSON.stringify(journey))}`;
+/** Build the /trains href for a journey. Passing travelers keeps the count
+ * alive across the trains -> seats -> trains round trip. */
+export function journeyHref(journey: JourneyQuery, travelers?: number): string {
+  const travelersParam = travelers && travelers > 1 ? `&travelers=${travelers}` : "";
+  return `/trains?j=${encodeURIComponent(JSON.stringify(journey))}${travelersParam}`;
 }
 
 /** Build the /seats href for a selected trip (keeps the journey for back-links). */
