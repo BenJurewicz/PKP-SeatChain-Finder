@@ -1,3 +1,4 @@
+import type { HarRequestConfig } from "@/lib/types";
 import { requireObject, asJsonObject } from "@/lib/parsing";
 
 function deriveGrmUrls(grmUrl: string): {

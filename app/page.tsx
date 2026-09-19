@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileUpload } from "@/components/file-upload";
 import { StationInput } from "@/components/station-input";
-import { DateTimeInput } from "@/components/date-time-input";
+import { DateTimePicker } from "@/components/date-time-picker";
 import { TripList } from "@/components/trip-list";
 import { SeatTimeline } from "@/components/seat-timeline";
 import { SeatReleasesSection } from "@/components/seat-releases-section";
@@ -635,7 +635,7 @@ export default function Home() {
                         </div>
                     </div>
                     <div className="mt-4">
-                        <DateTimeInput
+                        <DateTimePicker
                             date={tripDate}
                             time={tripTime}
                             onDateChange={(date) => {
