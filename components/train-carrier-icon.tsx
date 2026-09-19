@@ -30,33 +30,34 @@ export function TrainCarrierIcon({ carrierId, className }: TrainCarrierIconProps
   const iconSrc = CARRIER_ICONS[upperCarrierId];
   const colorClasses = CARRIER_COLORS[upperCarrierId];
 
-  // The train name already contains the numeric train number (e.g. "IC 1546").
-  // A pill showing a numeric carrier id would duplicate that number, so only
-  // alphabetic carrier types (EIP, IC, TLK, …) get the colored type pill.
-  const showTypePill = upperCarrierId !== "" && !/^\d+$/.test(upperCarrierId);
+  // Known carriers (EIP/IC/TLK) render their brand logo — no extra pill needed.
+  // The colored type pill is the fallback for carriers without a logo asset.
+  // A numeric carrier id is just the train number (already shown in the train
+  // name), so nothing is rendered for it.
+  if (iconSrc) {
+    return (
+      <img
+        src={iconSrc}
+        alt={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
+        className={cn("h-6 w-auto flex-none", className)}
+      />
+    );
+  }
 
-  if (!showTypePill) {
+  const isRenderableType = upperCarrierId !== "" && !/^\d+$/.test(upperCarrierId);
+  if (!isRenderableType) {
     return null;
   }
 
   return (
-    <span className={cn("inline-flex flex-none items-center gap-1.5", className)}>
-      {iconSrc ? (
-        <img
-          src={iconSrc}
-          alt={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
-          className="h-6 w-auto"
-        />
-      ) : null}
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wide",
-          colorClasses || "bg-muted text-foreground border-border",
-        )}
-        title={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
-      >
-        {upperCarrierId}
-      </span>
+    <span
+      className={cn(
+        "inline-flex flex-none items-center rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wide",
+        colorClasses || "bg-muted text-foreground border-border",
+      )}
+      title={CARRIER_NAMES[upperCarrierId] || upperCarrierId}
+    >
+      {upperCarrierId}
     </span>
   );
 }
