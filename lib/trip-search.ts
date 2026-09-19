@@ -206,7 +206,39 @@ function extractTripMatches(html: string): MatchResult[] {
     const carrierPattern = /<div class="hidden main-carrier">([^<]+)<\/div>/;
     const carrierMatch = carrierPattern.exec(searchArea);
     const rawTrainName = carrierMatch ? carrierMatch[1].trim() : "";
-    const trainName = isPlaceholderName(rawTrainName) ? "" : rawTrainName;
+    let trainName = isPlaceholderName(rawTrainName) ? "" : rawTrainName;
+
+    // The site renders the hidden main-carrier div as a literal "null null"
+    // for some queries (e.g. from stations without a rendered commercial
+    // carrier header), even though the same train shows its type elsewhere.
+    // Its own carrier badge ("carrier-metadata") always carries the real
+    // carrier type and train number as data attributes — use those as the
+    // fallback so the train name ("IC 8114") and carrier pill stay correct
+    // regardless of the departure station.
+    if (!trainName) {
+      const trainNums = new Set(
+        legs
+          .filter((leg) => leg.routeType === "TRAIN" && typeof leg.num === "string" && leg.num.length > 0)
+          .map((leg) => leg.num as string),
+      );
+      const metaPattern = /<div[^>]*carrier-metadata[^>]*>/g;
+      let metaMatch: RegExpExecArray | null;
+      while ((metaMatch = metaPattern.exec(searchArea)) !== null) {
+        const attrs = metaMatch[0];
+        const carrierId = /data-carrierId="([^"]*)"/.exec(attrs)?.[1]?.trim() ?? "";
+        const number = /data-number="([^"]*)"/.exec(attrs)?.[1]?.trim() ?? "";
+        if (
+          carrierId &&
+          carrierId !== "HAFAS_NO_TRAIN" &&
+          !isPlaceholderName(carrierId) &&
+          number &&
+          trainNums.has(number)
+        ) {
+          trainName = `${carrierId} ${number}`;
+          break;
+        }
+      }
+    }
 
     matches.push({
       tripIndex,
