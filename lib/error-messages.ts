@@ -1,6 +1,17 @@
 export function getFriendlyErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
+
+    // HAR pipeline failures: the capture itself is unusable (stale session,
+    // wrong request captured, schema drift) — point the user at re-capturing.
+    if (
+      message.includes("har") ||
+      message.includes("journey response") ||
+      message.includes("stops") ||
+      message.includes("vehicle number")
+    ) {
+      return "The captured request could not be replayed — it may be stale or captured before choosing seats. Please capture a fresh HAR file.";
+    }
     
     if (message.includes("enotfound") || message.includes("getaddrinfo")) {
       return "Unable to connect to the server. Please check your internet connection.";
